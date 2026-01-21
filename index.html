@@ -276,8 +276,15 @@
                     for (let i = 0; i < teams.length; i++) {
                         const element = teamRefs.current[i];
                         if (element) {
+                            // 캡쳐 전 등급 표시 숨기기
+                            const levelTags = element.querySelectorAll('.level-tag');
+                            levelTags.forEach(tag => tag.style.display = 'none');
+
                             const canvas = await html2canvas(element, { backgroundColor: '#f1f5f9', scale: 2 });
                             downloadImage(canvas.toDataURL('image/png'), `${meetingDate}_TEAM_${i + 1}.png`);
+
+                            // 캡쳐 후 등급 표시 복구
+                            levelTags.forEach(tag => tag.style.display = 'block');
                         }
                     }
                 } catch (e) { alert("캡쳐 중 오류가 발생했습니다."); }
@@ -314,6 +321,9 @@
                 teamRefs.current.forEach((ref) => {
                     if (ref) {
                         const clone = ref.cloneNode(true);
+                        // 복제된 노드에서 등급 표시 제거
+                        clone.querySelectorAll('.level-tag').forEach(tag => tag.remove());
+                        
                         clone.style.width = '100%';
                         clone.style.transform = 'none';
                         clone.style.boxShadow = 'none';
@@ -368,6 +378,7 @@
                         ))}
                     </nav>
 
+                    {/* Generator Tab */}
                     {activeTab === 'generator' && (
                         <div className="space-y-6 animate-fade-in text-left">
                             <div className="bg-white p-6 rounded-[32px] border border-slate-200 shadow-sm">
@@ -433,7 +444,7 @@
                                                             <div className="flex items-center gap-3">
                                                                 {m.gender === '여성' && <span className="text-[10px] font-black px-1.5 py-0.5 bg-pink-100 text-pink-600 rounded">W</span>}
                                                                 <div className="flex flex-col items-end text-slate-900">
-                                                                    <span className="text-xs font-black text-slate-400">{m.level}단</span>
+                                                                    <span className="text-xs font-black text-slate-400 level-tag">{m.level}단</span>
                                                                     {m.coupleId && <div className="text-pink-400 mt-0.5"><Icon.Heart /></div>}
                                                                 </div>
                                                             </div>
