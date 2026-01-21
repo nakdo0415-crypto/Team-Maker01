@@ -442,26 +442,33 @@
                                                     <span className="text-[10px] font-bold opacity-80 uppercase">{team.members.length} Players</span>
                                                 </div>
                                                 <div className="p-6 space-y-2.5">
-                                                    {team.members.map((m, mIdx) => (
-                                                        <div key={mIdx} className="flex items-center justify-between p-3.5 bg-slate-50 rounded-2xl hover:bg-white transition-all shadow-sm">
-                                                            <div className="flex items-center gap-4">
-                                                                <span className={`w-7 h-7 flex items-center justify-center rounded-full text-[10px] font-black ${mIdx === 2 || mIdx === 5 ? 'bg-blue-600 text-white ring-2 ring-blue-100 shadow-sm' : 'bg-slate-200 text-slate-500'}`}>{mIdx + 1}</span>
-                                                                <div className="flex flex-col text-left">
-                                                                    <div className="flex items-center gap-1.5">
-                                                                        {m.isGuest && <span className="text-[9px] font-black bg-blue-100 text-blue-600 px-1 rounded-sm flex-shrink-0">G</span>}
-                                                                        <span className="font-black text-slate-800 text-lg leading-none">{m.name}</span>
+                                                    {team.members.map((m, mIdx) => {
+                                                        // 커플 상대방이 현재 참여 리스트(selectedList)에 있는지 확인
+                                                        const isPartnerPresent = m.coupleId && selectedList.some(p => p.memberId === m.coupleId);
+
+                                                        return (
+                                                            <div key={mIdx} className="flex items-center justify-between p-3.5 bg-slate-50 rounded-2xl hover:bg-white transition-all shadow-sm">
+                                                                <div className="flex items-center gap-4">
+                                                                    <span className={`w-7 h-7 flex items-center justify-center rounded-full text-[10px] font-black ${mIdx === 2 || mIdx === 5 ? 'bg-blue-600 text-white ring-2 ring-blue-100 shadow-sm' : 'bg-slate-200 text-slate-500'}`}>{mIdx + 1}</span>
+                                                                    <div className="flex flex-col text-left">
+                                                                        <div className="flex items-center gap-1.5">
+                                                                            {m.isGuest && <span className="text-[9px] font-black bg-blue-100 text-blue-600 px-1 rounded-sm flex-shrink-0">G</span>}
+                                                                            <span className="font-black text-slate-800 text-lg leading-none">{m.name}</span>
+                                                                            {/* 여성 표시를 이름 바로 오른쪽으로 이동 */}
+                                                                            {m.gender === '여성' && <span className="text-[10px] font-black px-1.5 py-0.5 bg-pink-100 text-pink-600 rounded">W</span>}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="flex items-center gap-3">
+                                                                    <div className="flex flex-col items-end text-slate-900">
+                                                                        <span className="text-xs font-black text-slate-400 level-tag">{m.level}단</span>
+                                                                        {/* 커플이 둘 다 참여 중일 때만 하트 표시 */}
+                                                                        {isPartnerPresent && <div className="text-pink-400 mt-0.5"><Icon.Heart /></div>}
                                                                     </div>
                                                                 </div>
                                                             </div>
-                                                            <div className="flex items-center gap-3">
-                                                                {m.gender === '여성' && <span className="text-[10px] font-black px-1.5 py-0.5 bg-pink-100 text-pink-600 rounded">W</span>}
-                                                                <div className="flex flex-col items-end text-slate-900">
-                                                                    <span className="text-xs font-black text-slate-400 level-tag">{m.level}단</span>
-                                                                    {m.coupleId && <div className="text-pink-400 mt-0.5"><Icon.Heart /></div>}
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    ))}
+                                                        );
+                                                    })}
                                                 </div>
                                             </div>
                                         ))}
