@@ -72,7 +72,22 @@
             Camera: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>,
             Download: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
             Shield: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
-            Clock: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            Clock: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
+            TrendingUp: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+        };
+
+        const getLevelColor = (level) => {
+            const l = parseInt(level);
+            const n = l > 6 ? l - 6 : l; 
+            switch(n) {
+                case 1: return 'bg-rose-500 text-white';
+                case 2: return 'bg-orange-500 text-white';
+                case 3: return 'bg-amber-400 text-slate-800';
+                case 4: return 'bg-emerald-500 text-white';
+                case 5: return 'bg-blue-500 text-white';
+                case 6: return 'bg-violet-500 text-white';
+                default: return 'bg-slate-400 text-white';
+            }
         };
 
         function App() {
@@ -113,10 +128,7 @@
                     if (doc.exists) {
                         const data = doc.data();
                         setMeetingDate(data.date || "");
-                        setMeetingTime({
-                            start: data.start || "",
-                            end: data.end || ""
-                        });
+                        setMeetingTime({ start: data.start || "", end: data.end || "" });
                         setSyncManagerName(data.managerName || "");
                     }
                 });
@@ -133,7 +145,19 @@
                 return sessionData.filter(s => s.date === meetingDate && s.status !== '노쇼');
             }, [sessionData, meetingDate]);
 
-            // --- 팀 편성 알고리즘 ---
+            const levelStats = useMemo(() => {
+                const stats = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 };
+                selectedList.forEach(p => {
+                    const masterInfo = members.find(m => m.id === p.memberId) || {};
+                    const l = parseInt(masterInfo.level || p.level || 0);
+                    if (l > 0) {
+                        const n = l > 6 ? l - 6 : l;
+                        if (stats[n] !== undefined) stats[n]++;
+                    }
+                });
+                return stats;
+            }, [selectedList, members]);
+
             const generateTeams = () => {
                 const { teamCount, keepCouples } = teamingSettings;
                 const totalAttendees = selectedList.length;
@@ -147,7 +171,6 @@
                     const masterInfo = members.find(m => m.id === p.memberId) || {};
                     return {
                         ...p,
-                        name: masterInfo.name || p.name,
                         level: parseInt(masterInfo.level || p.level || 99),
                         coupleId: masterInfo.coupleId || '',
                         gender: masterInfo.gender || p.gender || '남성',
@@ -213,29 +236,21 @@
                 const finalTeams = resultTeams.map(teamMembers => {
                     const currentTeamSize = teamMembers.length;
                     if (currentTeamSize === 0) return { members: [] };
-
                     const females = teamMembers.filter(m => m.gender === '여성').sort((a, b) => a.level - b.level);
                     const slot3 = (currentTeamSize >= 3 && females.length > 0) ? females.shift() : null;
                     const slot6 = (currentTeamSize >= 6 && females.length > 0) ? females.shift() : null;
-
-                    const others = teamMembers
-                        .filter(m => m !== slot3 && m !== slot6)
-                        .sort((a, b) => a.level - b.level);
-
+                    const others = teamMembers.filter(m => m !== slot3 && m !== slot6).sort((a, b) => a.level - b.level);
                     const reordered = Array(currentTeamSize).fill(null);
                     if (slot3) reordered[2] = slot3;
                     if (slot6) reordered[5] = slot6;
-
                     for (let i = 0; i < currentTeamSize; i++) {
                         if (reordered[i] === null) {
                             const nextPerson = others.shift();
                             if (nextPerson) reordered[i] = nextPerson;
                         }
                     }
-
                     return { members: reordered.filter(m => m !== null) };
                 });
-
                 setTeams(finalTeams);
                 setActiveTab('results');
             };
@@ -246,10 +261,8 @@
                     const now = new Date();
                     const timeStr = now.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
                     await getCol('team_drafts').add({
-                        meetingDate, 
-                        meetingTimeRange: `${meetingTime.start} ~ ${meetingTime.end}`,
-                        createdAt: now.toISOString(),
-                        timeLabel: timeStr, teams,
+                        meetingDate, meetingTimeRange: `${meetingTime.start} ~ ${meetingTime.end}`,
+                        createdAt: now.toISOString(), timeLabel: timeStr, teams,
                         managerName: syncManagerName 
                     });
                     alert("성공적으로 저장되었습니다.");
@@ -283,15 +296,11 @@
                     for (let i = 0; i < teams.length; i++) {
                         const element = teamRefs.current[i];
                         if (element) {
-                            // 캡쳐 시 등급 표시 숨기기 (class="level-tag" 타겟팅)
                             const levelTags = element.querySelectorAll('.level-tag');
                             levelTags.forEach(tag => tag.style.display = 'none');
-
                             const canvas = await html2canvas(element, { backgroundColor: '#f1f5f9', scale: 2 });
                             downloadImage(canvas.toDataURL('image/png'), `${meetingDate}_TEAM_${i + 1}.png`);
-
-                            // 캡쳐 완료 후 등급 표시 복구
-                            levelTags.forEach(tag => tag.style.display = 'block');
+                            levelTags.forEach(tag => tag.style.display = 'inline-flex');
                         }
                     }
                 } catch (e) { alert("캡쳐 중 오류가 발생했습니다."); }
@@ -322,15 +331,12 @@
                     </div>
                 `;
                 container.appendChild(header);
-
                 document.body.appendChild(container);
 
                 teamRefs.current.forEach((ref) => {
                     if (ref) {
                         const clone = ref.cloneNode(true);
-                        // 복제된 카드에서 등급 표시(.level-tag) 완전 제거
                         clone.querySelectorAll('.level-tag').forEach(tag => tag.remove());
-                        
                         clone.style.width = '100%';
                         clone.style.transform = 'none';
                         clone.style.boxShadow = 'none';
@@ -367,7 +373,6 @@
                                 </div>
                                 <span className="text-xs font-bold text-slate-400">{selectedList.length}명 참여 확정</span>
                             </div>
-                            
                             {syncManagerName && (
                                 <div className="flex items-center gap-2 text-blue-600 font-bold text-xs uppercase tracking-wide animate-fade-in bg-blue-50 px-5 py-2 rounded-full border border-blue-100 shadow-sm">
                                     <Icon.Shield />
@@ -385,22 +390,46 @@
                         ))}
                     </nav>
 
-                    {/* Generator Tab: 등급 노출 */}
                     {activeTab === 'generator' && (
                         <div className="space-y-6 animate-fade-in text-left">
                             <div className="bg-white p-6 rounded-[32px] border border-slate-200 shadow-sm">
-                                <h3 className="text-xs font-black text-slate-400 mb-4 uppercase tracking-widest">Entry Pool</h3>
-                                <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto custom-scrollbar pr-2">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 border-b border-slate-50 pb-4">
+                                    <div className="flex items-center gap-2">
+                                        <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Entry Pool</h3>
+                                        <span className="text-[10px] font-black text-blue-500 bg-blue-50 px-2 py-0.5 rounded-full">{selectedList.length}명</span>
+                                    </div>
+                                    <div className="flex flex-wrap gap-x-4 gap-y-2 items-center">
+                                        {[1,2,3,4,5,6].map(lvl => (
+                                            <div key={lvl} className="flex items-center gap-1.5">
+                                                <span className={`w-5 h-5 flex items-center justify-center rounded font-black text-[10px] ${getLevelColor(lvl)}`}>{lvl}</span>
+                                                <span className="text-sm font-black text-slate-700">{levelStats[lvl]}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="flex flex-wrap gap-3 max-h-80 overflow-y-auto custom-scrollbar pr-2">
                                     {selectedList.length === 0 ? (
                                         <p className="text-sm text-slate-300 font-bold py-4 text-center w-full">참여 가능한 인원이 없습니다.</p>
-                                    ) : selectedList.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
+                                    ) : selectedList.sort((a, b) => {
+                                        const masterA = members.find(m => m.id === a.memberId) || {};
+                                        const masterB = members.find(m => m.id === b.memberId) || {};
+                                        const lvlA = parseInt(masterA.level || a.level || 99);
+                                        const lvlB = parseInt(masterB.level || b.level || 99);
+                                        const nA = lvlA > 6 ? lvlA - 6 : lvlA;
+                                        const nB = lvlB > 6 ? lvlB - 6 : lvlB;
+                                        if (nA !== nB) return nA - nB; 
+                                        return (masterA.name || a.name).localeCompare(masterB.name || b.name);
+                                    }).map(p => {
                                         const masterInfo = members.find(m => m.id === p.memberId) || {};
+                                        const levelVal = masterInfo.level || p.level;
                                         return (
-                                            <div key={p.id} className="px-3 py-1.5 bg-slate-50 border border-slate-100 rounded-lg text-xs font-bold text-slate-600 flex items-center gap-1.5">
-                                                {p.isGuest && <span className="text-[9px] font-black bg-blue-100 text-blue-600 px-1 rounded-sm flex-shrink-0">G</span>}
-                                                {p.name}
-                                                {p.gender === '여성' && <span className="text-[9px] font-black text-pink-500">W</span>}
-                                                <span className="text-[9px] opacity-40 level-tag">{masterInfo.level || p.level}단</span>
+                                            <div key={p.id} className="px-3.5 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 flex items-center gap-2 shadow-sm transition-all hover:bg-slate-200">
+                                                <div className="flex items-center gap-1.5">
+                                                    {p.isGuest && <span className="text-[9px] font-black bg-blue-600 text-white px-1.5 rounded flex-shrink-0">G</span>}
+                                                    <span className="font-black text-slate-800">{p.name}</span>
+                                                    {p.gender === '여성' && <span className="text-[10px] font-black px-1.5 py-0.5 bg-pink-100 text-pink-600 rounded">W</span>}
+                                                </div>
+                                                <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-lg level-tag ${getLevelColor(levelVal)}`}>{levelVal}</span>
                                             </div>
                                         );
                                     })}
@@ -409,13 +438,13 @@
 
                             <div className="bg-white p-8 rounded-[40px] border border-slate-200 shadow-lg text-left">
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 mb-8">
-                                    <div className="flex flex-col gap-2 text-left">
-                                        <label className="text-[10px] font-black text-slate-400 ml-1 uppercase">Team Count</label>
-                                        <select className="p-4 bg-slate-50 rounded-2xl font-black text-lg" value={teamingSettings.teamCount} onChange={e => setTeamingSettings({...teamingSettings, teamCount: parseInt(e.target.value)})}>
+                                    <div className="flex flex-col gap-2">
+                                        <label className="text-[10px] font-black text-slate-400 ml-1 uppercase text-left">Team Count</label>
+                                        <select className="p-4 bg-slate-50 rounded-2xl font-black text-lg text-left" value={teamingSettings.teamCount} onChange={e => setTeamingSettings({...teamingSettings, teamCount: parseInt(e.target.value)})}>
                                             {[2,3,4,5,6].map(v => <option key={v} value={v}>{v}개 팀 균등 편성</option>)}
                                         </select>
                                     </div>
-                                    <div className="flex items-end text-left">
+                                    <div className="flex items-end">
                                         <label className="w-full flex items-center justify-between p-4 bg-slate-50 rounded-2xl border-2 border-transparent hover:border-blue-100 transition-all cursor-pointer">
                                             <span className="text-xs font-black text-slate-600">커플 무조건 동반 배정</span>
                                             <input type="checkbox" checked={teamingSettings.keepCouples} onChange={e => setTeamingSettings({...teamingSettings, keepCouples: e.target.checked})} className="w-6 h-6 accent-blue-600 rounded" />
@@ -427,14 +456,13 @@
                         </div>
                     )}
 
-                    {/* Results Tab: 등급 노출 (캡쳐 시에만 숨김) */}
                     {activeTab === 'results' && (
-                        <div className="animate-fade-in">
+                        <div className="animate-fade-in text-left">
                             {teams.length === 0 ? (
                                 <div className="py-20 text-center text-slate-300 font-black">표시할 결과가 없습니다.</div>
                             ) : (
                                 <>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         {teams.map((team, idx) => (
                                             <div key={idx} ref={el => teamRefs.current[idx] = el} className="team-card bg-white rounded-[40px] shadow-xl overflow-hidden border border-slate-100">
                                                 <div className={`p-5 text-center font-black text-white flex justify-between items-center px-8 ${idx === 0 ? 'bg-rose-500' : idx === 1 ? 'bg-blue-500' : idx === 2 ? 'bg-emerald-600' : 'bg-orange-500'}`}>
@@ -443,26 +471,24 @@
                                                 </div>
                                                 <div className="p-6 space-y-2.5">
                                                     {team.members.map((m, mIdx) => {
-                                                        // 커플 상대방이 현재 참여 리스트(selectedList)에 있는지 확인
                                                         const isPartnerPresent = m.coupleId && selectedList.some(p => p.memberId === m.coupleId);
-
                                                         return (
-                                                            <div key={mIdx} className="flex items-center justify-between p-3.5 bg-slate-50 rounded-2xl hover:bg-white transition-all shadow-sm">
-                                                                <div className="flex items-center gap-4">
+                                                            <div key={mIdx} className="flex items-center justify-between p-3.5 bg-slate-50 rounded-2xl hover:bg-white transition-all shadow-sm text-left">
+                                                                <div className="flex items-center gap-4 text-left">
                                                                     <span className={`w-7 h-7 flex items-center justify-center rounded-full text-[10px] font-black ${mIdx === 2 || mIdx === 5 ? 'bg-blue-600 text-white ring-2 ring-blue-100 shadow-sm' : 'bg-slate-200 text-slate-500'}`}>{mIdx + 1}</span>
                                                                     <div className="flex flex-col text-left">
-                                                                        <div className="flex items-center gap-1.5">
+                                                                        <div className="flex items-center gap-1.5 text-left">
                                                                             {m.isGuest && <span className="text-[9px] font-black bg-blue-100 text-blue-600 px-1 rounded-sm flex-shrink-0">G</span>}
                                                                             <span className="font-black text-slate-800 text-lg leading-none">{m.name}</span>
-                                                                            {/* 여성 표시를 이름 바로 오른쪽으로 이동 */}
                                                                             {m.gender === '여성' && <span className="text-[10px] font-black px-1.5 py-0.5 bg-pink-100 text-pink-600 rounded">W</span>}
                                                                         </div>
                                                                     </div>
                                                                 </div>
                                                                 <div className="flex items-center gap-3">
                                                                     <div className="flex flex-col items-end text-slate-900">
-                                                                        <span className="text-xs font-black text-slate-400 level-tag">{m.level}단</span>
-                                                                        {/* 커플이 둘 다 참여 중일 때만 하트 표시 */}
+                                                                        <span className={`text-[11px] font-black px-2 py-0.5 rounded-lg level-tag inline-flex items-center justify-center min-w-[24px] ${getLevelColor(m.level)}`}>
+                                                                            {m.level}
+                                                                        </span>
                                                                         {isPartnerPresent && <div className="text-pink-400 mt-0.5"><Icon.Heart /></div>}
                                                                     </div>
                                                                 </div>
@@ -473,13 +499,12 @@
                                             </div>
                                         ))}
                                     </div>
-                                    
                                     <div className="mt-10 p-8 bg-white rounded-[40px] border border-slate-200 shadow-lg space-y-8 text-left">
                                         <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                                            <button onClick={generateTeams} className="flex-1 max-w-xs flex items-center justify-center gap-2 px-8 py-5 bg-slate-900 text-white rounded-3xl font-black text-sm shadow-lg hover:bg-slate-800 transition-all">
-                                                <Icon.Refresh /> 기준 유지하고 다시 섞기
+                                            <button onClick={generateTeams} className="flex-1 max-w-xs flex items-center justify-center gap-2 px-8 py-5 bg-slate-900 text-white rounded-3xl font-black text-sm shadow-lg hover:bg-slate-800 transition-all text-left">
+                                                <Icon.Refresh /> 다시 섞기
                                             </button>
-                                            <button onClick={saveDraft} className="flex-1 max-w-xs flex items-center justify-center gap-2 px-8 py-5 bg-blue-600 text-white rounded-3xl font-black text-sm shadow-xl hover:bg-blue-700 transition-all">
+                                            <button onClick={saveDraft} className="flex-1 max-w-xs flex items-center justify-center gap-2 px-8 py-5 bg-blue-600 text-white rounded-3xl font-black text-sm shadow-xl hover:bg-blue-700 transition-all text-left">
                                                 <Icon.Bookmark /> 현재 편성 임시저장
                                             </button>
                                         </div>
@@ -501,11 +526,11 @@
                             {savedDrafts.length === 0 ? (
                                 <div className="py-20 text-center text-slate-300 font-black">기록이 없습니다.</div>
                             ) : savedDrafts.map(draft => (
-                                <div key={draft.id} className="bg-white p-6 rounded-[32px] border border-slate-200 shadow-sm flex items-center justify-between transition-all hover:border-blue-300">
-                                    <div className="text-left">
+                                <div key={draft.id} className="bg-white p-6 rounded-[32px] border border-slate-200 shadow-sm flex items-center justify-between transition-all hover:border-blue-300 text-left text-slate-900">
+                                    <div className="text-left text-slate-900">
                                         <p className="text-lg font-black text-slate-900">{draft.timeLabel} 편성</p>
-                                        <div className="flex flex-col gap-1 mt-1 text-slate-900 text-left">
-                                            <div className="flex gap-2 items-center leading-none">
+                                        <div className="flex flex-col gap-1 mt-1 text-left text-slate-900">
+                                            <div className="flex gap-2 items-center leading-none text-slate-900">
                                                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{draft.meetingDate}</span>
                                                 {draft.meetingTimeRange && (
                                                     <React.Fragment>
@@ -524,7 +549,7 @@
                                             )}
                                         </div>
                                     </div>
-                                    <div className="flex gap-2">
+                                    <div className="flex gap-2 text-left">
                                         <button onClick={() => loadDraft(draft)} className="px-5 py-2.5 bg-blue-50 text-blue-600 rounded-xl font-black text-xs hover:bg-blue-100 transition-all">불러오기</button>
                                         <button onClick={() => deleteDraft(draft.id)} className="p-2.5 text-slate-300 hover:text-red-500 transition-all"><Icon.Trash /></button>
                                     </div>
