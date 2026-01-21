@@ -28,12 +28,19 @@
         }
         .team-card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
         .team-card:hover { transform: translateY(-4px); }
-        .animate-fade-in { animation: fadeIn 0.3s ease-out; }
+        .animate-fade-in { animation: fadeIn 0.2s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         
         button:active { transform: scale(0.96); }
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+
+        .modal-backdrop {
+            background-color: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(8px);
+            animation: backdropFadeIn 0.2s ease-out;
+        }
+        @keyframes backdropFadeIn { from { opacity: 0; } to { opacity: 1; } }
     </style>
 </head>
 <body>
@@ -46,7 +53,6 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo, useRef } = React;
 
-        // --- Firebase Configuration ---
         const firebaseConfig = {
             apiKey: "AIzaSyCAcQzliuWJTB8vPm9gb0vsyR8pIAx7YTw",
             authDomain: "otp-fc-check.firebaseapp.com",
@@ -66,14 +72,15 @@
         const Icon = {
             Refresh: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>,
             Heart: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>,
-            Layout: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>,
             Bookmark: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>,
             Trash: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>,
             Camera: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>,
             Download: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
             Shield: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
             Clock: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
-            TrendingUp: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+            TrendingUp: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>,
+            AlertCircle: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>,
+            Info: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
         };
 
         const getLevelColor = (level) => {
@@ -90,6 +97,22 @@
             }
         };
 
+        const getLevelPoints = (level) => {
+            const l = parseInt(level);
+            const standardLvl = l > 6 ? l - 6 : l;
+            return Math.max(1, 7 - standardLvl); 
+        };
+
+        // 배열 셔플 유틸리티 (강력한 셔플)
+        const shuffleArray = (array) => {
+            const arr = [...array];
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        };
+
         function App() {
             const [members, setMembers] = useState([]);
             const [sessionData, setSessionData] = useState([]);
@@ -97,13 +120,16 @@
             const [meetingDate, setMeetingDate] = useState('');
             const [meetingTime, setMeetingTime] = useState({ start: '', end: '' }); 
             const [syncManagerName, setSyncManagerName] = useState(''); 
-            const [teamingSettings, setTeamingSettings] = useState({
-                teamCount: 3,
-                keepCouples: true
-            });
+            const [teamingSettings, setTeamingSettings] = useState({ teamCount: 3, keepCouples: true });
             const [teams, setTeams] = useState([]);
             const [activeTab, setActiveTab] = useState('generator');
             const [isCapturing, setIsCapturing] = useState(false);
+
+            // 모달 상태
+            const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+            const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+            const [targetDeleteId, setTargetDeleteId] = useState(null);
+            const [isProcessing, setIsProcessing] = useState(false);
 
             const teamRefs = useRef([]);
 
@@ -115,15 +141,8 @@
                     } catch (e) { console.error(e); }
                 };
                 init();
-
-                const unsubMembers = getCol('members').onSnapshot(snap => {
-                    setMembers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-                });
-
-                const unsubSession = getCol('weekly_session').onSnapshot(snap => {
-                    setSessionData(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-                });
-                
+                const unsubMembers = getCol('members').onSnapshot(snap => setMembers(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+                const unsubSession = getCol('weekly_session').onSnapshot(snap => setSessionData(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
                 const unsubSettings = db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('settings').doc('meeting_time').onSnapshot(doc => {
                     if (doc.exists) {
                         const data = doc.data();
@@ -132,7 +151,6 @@
                         setSyncManagerName(data.managerName || "");
                     }
                 });
-
                 const unsubDrafts = getCol('team_drafts').onSnapshot(snap => {
                     const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                     setSavedDrafts(data.sort((a,b) => b.createdAt.localeCompare(a.createdAt)));
@@ -161,23 +179,24 @@
             const generateTeams = () => {
                 const { teamCount, keepCouples } = teamingSettings;
                 const totalAttendees = selectedList.length;
+                if (totalAttendees < teamCount) return;
 
-                if (totalAttendees < teamCount) {
-                    alert("참여 인원이 팀 수보다 적습니다.");
-                    return;
-                }
-
+                // 1. 데이터 보충
                 let pool = selectedList.map(p => {
                     const masterInfo = members.find(m => m.id === p.memberId) || {};
+                    const lvl = parseInt(masterInfo.level || p.level || 99);
                     return {
                         ...p,
-                        level: parseInt(masterInfo.level || p.level || 99),
+                        name: masterInfo.name || p.name,
+                        level: lvl,
+                        points: getLevelPoints(lvl),
                         coupleId: masterInfo.coupleId || '',
                         gender: masterInfo.gender || p.gender || '남성',
                         isGuest: p.isGuest || false
                     };
                 });
 
+                // 2. 유닛 구성
                 let units = [];
                 let processedIds = new Set();
                 if (keepCouples) {
@@ -186,109 +205,161 @@
                             if (p.coupleId) {
                                 const partner = pool.find(o => o.memberId === p.coupleId && !processedIds.has(o.id));
                                 if (partner) {
-                                    units.push({ members: [p, partner], avgLevel: (p.level + partner.level) / 2 });
+                                    units.push({ 
+                                        members: [p, partner], 
+                                        totalPoints: p.points + partner.points,
+                                        hasFemale: p.gender === '여성' || partner.gender === '여성',
+                                        isTopMale: p.level === 1 || partner.level === 1,
+                                        isTopFemale: p.level === 7 || partner.level === 7,
+                                        avgSkill: (p.points + partner.points) / 2
+                                    });
                                     processedIds.add(p.id); processedIds.add(partner.id);
                                     return;
                                 }
                             }
-                            units.push({ members: [p], avgLevel: p.level });
+                            units.push({ members: [p], totalPoints: p.points, hasFemale: p.gender === '여성', isTopMale: p.level === 1, isTopFemale: p.level === 7, avgSkill: p.points });
                             processedIds.add(p.id);
                         }
                     });
                 } else {
-                    units = pool.map(p => ({ members: [p], avgLevel: p.level }));
+                    units = pool.map(p => ({ members: [p], totalPoints: p.points, hasFemale: p.gender === '여성', isTopMale: p.level === 1, isTopFemale: p.level === 7, avgSkill: p.points }));
                 }
 
-                units.sort((a, b) => (a.avgLevel - b.avgLevel) || (Math.random() - 0.5));
-                
-                const baseCount = Math.floor(totalAttendees / teamCount);
-                const remainder = totalAttendees % teamCount;
-                const targetSizes = Array(teamCount).fill(baseCount);
-                for (let i = 0; i < remainder; i++) targetSizes[i]++;
+                // 3. 팀 초기화 (균등 인원 강제)
+                const baseSize = Math.floor(totalAttendees / teamCount);
+                const teamsWithExtra = totalAttendees % teamCount;
+                const resultTeams = Array.from({ length: teamCount }, (_, i) => ({ 
+                    members: [], 
+                    scoreSum: 0, 
+                    targetSize: baseSize + (i < teamsWithExtra ? 1 : 0),
+                    hasTopMale: false,
+                    hasTopFemale: false
+                }));
 
-                const resultTeams = Array.from({ length: teamCount }, () => []);
-                let currentIdx = Math.floor(Math.random() * teamCount);
-                let direction = Math.random() > 0.5 ? 1 : -1;
+                // 4. 배정 로직 (무작위성 대폭 강화)
+                let unitsToAssign = shuffleArray(shuffleArray(units)); // 더블 셔플
 
-                units.forEach(unit => {
-                    let assigned = false;
-                    let attempts = 0;
-                    while (!assigned && attempts < teamCount) {
-                        const target = (currentIdx + teamCount) % teamCount;
-                        if (resultTeams[target].length + unit.members.length <= targetSizes[target]) {
-                            resultTeams[target].push(...unit.members);
-                            assigned = true;
-                            currentIdx = target;
+                // A. 최강자(남1 & 여7) 강제 격리 찢기
+                const topMaleUnit = unitsToAssign.find(u => u.isTopMale);
+                const topFemaleUnit = unitsToAssign.find(u => u.isTopFemale);
+
+                if (topMaleUnit && topFemaleUnit && teamCount >= 2) {
+                    const randomIndices = shuffleArray(Array.from({length: teamCount}, (_, i) => i));
+                    const maleIdx = randomIndices[0];
+                    const femaleIdx = randomIndices[1];
+                    
+                    // 남1 배정
+                    resultTeams[maleIdx].members.push(...topMaleUnit.members);
+                    resultTeams[maleIdx].scoreSum += topMaleUnit.totalPoints;
+                    resultTeams[maleIdx].hasTopMale = true;
+                    
+                    // 여7 배정
+                    resultTeams[femaleIdx].members.push(...topFemaleUnit.members);
+                    resultTeams[femaleIdx].scoreSum += topFemaleUnit.totalPoints;
+                    resultTeams[femaleIdx].hasTopFemale = true;
+
+                    unitsToAssign = unitsToAssign.filter(u => u !== topMaleUnit && u !== topFemaleUnit);
+                }
+
+                // B. 나머지 배정
+                const assignByBalancedRandom = (unitList, isFemalePriority = false) => {
+                    const sorted = shuffleArray(unitList).sort((a, b) => b.avgSkill - a.avgSkill || Math.random() - 0.5);
+
+                    sorted.forEach(unit => {
+                        let candidates = resultTeams
+                            .map((team, idx) => ({ 
+                                idx, 
+                                fCount: team.members.filter(m => m.gender === '여성').length,
+                                tCount: team.members.length,
+                                score: team.scoreSum,
+                                target: team.targetSize,
+                                hasTopMale: team.hasTopMale
+                            }))
+                            .filter(t => t.tCount + unit.members.length <= t.target);
+
+                        // 격리 원칙 재확인
+                        if (unit.isTopFemale) candidates = candidates.filter(c => !c.hasTopMale);
+                        if (unit.isTopMale) candidates = candidates.filter(c => !resultTeams[c.idx].hasTopFemale);
+
+                        let targetIdx = -1;
+                        if (candidates.length > 0) {
+                            const sortedCandidates = candidates.sort((a, b) => {
+                                // 전력 차이가 거의 없으면(0.5점 이내) 랜덤으로 선택하여 고착화 방지
+                                if (Math.abs(a.score - b.score) < 0.5) return Math.random() - 0.5;
+                                
+                                if (isFemalePriority && unit.hasFemale) {
+                                    return (a.fCount - b.fCount) || (a.score - b.score);
+                                }
+                                return (a.score - b.score) || (a.tCount - b.tCount);
+                            });
+                            targetIdx = sortedCandidates[0].idx;
                         } else {
-                            currentIdx += direction;
-                            attempts++;
+                            targetIdx = resultTeams.findIndex(t => t.members.length < t.targetSize);
                         }
+
+                        resultTeams[targetIdx].members.push(...unit.members);
+                        resultTeams[targetIdx].scoreSum += unit.totalPoints;
+                        if (unit.isTopMale) resultTeams[targetIdx].hasTopMale = true;
+                        if (unit.isTopFemale) resultTeams[targetIdx].hasTopFemale = true;
+                    });
+                };
+
+                assignByBalancedRandom(unitsToAssign.filter(u => u.hasFemale), true);
+                assignByBalancedRandom(unitsToAssign.filter(u => !u.hasFemale), false);
+
+                // 5. 최종 자리 배치 (여성 3/6번)
+                const finalTeams = resultTeams.map(t => {
+                    const mlist = t.members;
+                    const size = mlist.length;
+                    const teamFemales = mlist.filter(m => m.gender === '여성').sort((a, b) => a.level - b.level);
+                    const others = mlist.filter(m => m.gender !== '여성').sort((a, b) => a.level - b.level);
+
+                    const reordered = Array(size).fill(null);
+                    if (size >= 3 && teamFemales.length > 0) reordered[2] = teamFemales.shift();
+                    if (size >= 6 && teamFemales.length > 0) reordered[5] = teamFemales.shift();
+
+                    const combinedRemaining = shuffleArray([...teamFemales, ...others]).sort((a, b) => a.level - b.level);
+                    for (let i = 0; i < size; i++) {
+                        if (reordered[i] === null) reordered[i] = combinedRemaining.shift();
                     }
-                    if (!assigned) {
-                        const minTeam = resultTeams.reduce((prev, curr) => prev.length <= curr.length ? prev : curr);
-                        minTeam.push(...unit.members);
-                    }
-                    currentIdx += direction;
-                    if (currentIdx >= teamCount) { currentIdx = teamCount - 1; direction = -1; }
-                    else if (currentIdx < 0) { currentIdx = 0; direction = 1; }
+                    return { members: reordered.filter(m => m !== null), scoreSum: Math.round(t.scoreSum * 10) / 10 };
                 });
 
-                const finalTeams = resultTeams.map(teamMembers => {
-                    const currentTeamSize = teamMembers.length;
-                    if (currentTeamSize === 0) return { members: [] };
-                    const females = teamMembers.filter(m => m.gender === '여성').sort((a, b) => a.level - b.level);
-                    const slot3 = (currentTeamSize >= 3 && females.length > 0) ? females.shift() : null;
-                    const slot6 = (currentTeamSize >= 6 && females.length > 0) ? females.shift() : null;
-                    const others = teamMembers.filter(m => m !== slot3 && m !== slot6).sort((a, b) => a.level - b.level);
-                    const reordered = Array(currentTeamSize).fill(null);
-                    if (slot3) reordered[2] = slot3;
-                    if (slot6) reordered[5] = slot6;
-                    for (let i = 0; i < currentTeamSize; i++) {
-                        if (reordered[i] === null) {
-                            const nextPerson = others.shift();
-                            if (nextPerson) reordered[i] = nextPerson;
-                        }
-                    }
-                    return { members: reordered.filter(m => m !== null) };
-                });
                 setTeams(finalTeams);
                 setActiveTab('results');
             };
 
-            const saveDraft = async () => {
-                if (teams.length === 0) return;
+            const confirmSaveDraft = async () => {
+                setIsProcessing(true);
                 try {
                     const now = new Date();
                     const timeStr = now.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
                     await getCol('team_drafts').add({
                         meetingDate, meetingTimeRange: `${meetingTime.start} ~ ${meetingTime.end}`,
-                        createdAt: now.toISOString(), timeLabel: timeStr, teams,
-                        managerName: syncManagerName 
+                        createdAt: now.toISOString(), timeLabel: timeStr, teams, managerName: syncManagerName 
                     });
-                    alert("성공적으로 저장되었습니다.");
-                } catch (e) { alert("저장 실패"); }
+                    setIsSaveModalOpen(false);
+                } catch (e) { alert("저장 중 오류가 발생했습니다."); }
+                finally { setIsProcessing(false); }
             };
 
-            const loadDraft = (draft) => { 
-                setTeams(draft.teams); 
-                setSyncManagerName(draft.managerName || "");
-                if (draft.meetingTimeRange) {
-                    const [s, e] = draft.meetingTimeRange.split(' ~ ');
-                    setMeetingTime({ start: s, end: e });
-                }
-                setActiveTab('results'); 
+            const openDeleteModal = (id) => {
+                setTargetDeleteId(id);
+                setIsDeleteModalOpen(true);
             };
 
-            const deleteDraft = async (id) => { if (confirm("삭제하시겠습니까?")) await getCol('team_drafts').doc(id).delete(); };
-
-            const downloadImage = (dataUrl, filename) => {
-                const link = document.createElement('a');
-                link.href = dataUrl;
-                link.download = filename;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
+            const confirmDeleteDraft = async () => {
+                if (!targetDeleteId) return;
+                setIsProcessing(true);
+                try {
+                    await getCol('team_drafts').doc(targetDeleteId).delete();
+                    setIsDeleteModalOpen(false);
+                    setTargetDeleteId(null);
+                } catch (e) { alert("삭제 처리 중 오류가 발생했습니다."); }
+                finally { setIsProcessing(false); }
             };
+
+            const loadDraft = (draft) => { setTeams(draft.teams); setSyncManagerName(draft.managerName || ""); setActiveTab('results'); };
 
             const captureIndividualTeams = async () => {
                 setIsCapturing(true);
@@ -299,64 +370,48 @@
                             const levelTags = element.querySelectorAll('.level-tag');
                             levelTags.forEach(tag => tag.style.display = 'none');
                             const canvas = await html2canvas(element, { backgroundColor: '#f1f5f9', scale: 2 });
-                            downloadImage(canvas.toDataURL('image/png'), `${meetingDate}_TEAM_${i + 1}.png`);
+                            const link = document.createElement('a');
+                            link.href = canvas.toDataURL('image/png'); link.download = `${meetingDate}_TEAM_${i + 1}.png`;
+                            link.click();
                             levelTags.forEach(tag => tag.style.display = 'inline-flex');
                         }
                     }
-                } catch (e) { alert("캡쳐 중 오류가 발생했습니다."); }
+                } catch (e) {}
                 setIsCapturing(false);
             };
 
             const captureAllInOne = async () => {
                 setIsCapturing(true);
                 const container = document.createElement('div');
-                container.style.padding = '50px';
-                container.style.backgroundColor = '#f1f5f9';
-                container.style.width = '1200px';
-                container.style.display = 'grid';
-                container.style.gridTemplateColumns = 'repeat(3, 1fr)';
-                container.style.gap = '25px';
-                container.style.position = 'fixed';
-                container.style.top = '-9999px';
-
+                container.style.padding = '40px'; container.style.backgroundColor = '#f1f5f9';
+                container.style.width = '1200px'; container.style.display = 'grid';
+                container.style.gridTemplateColumns = 'repeat(3, 1fr)'; container.style.gap = '20px';
+                container.style.position = 'fixed'; container.style.top = '-9999px';
                 const header = document.createElement('div');
-                header.style.gridColumn = 'span 3';
-                header.style.textAlign = 'center';
-                header.style.marginBottom = '30px';
-                header.innerHTML = `
-                    <h1 style="font-size: 42px; font-weight: 900; color: #0f172a; margin-bottom: 8px; font-family: 'Pretendard', sans-serif;">OTP FC TEAM LIST</h1>
-                    <div style="font-size: 18px; font-weight: 700; color: #64748b; font-family: 'Pretendard', sans-serif; display: flex; align-items: center; justify-content: center; gap: 10px;">
-                        <span>DATE: ${meetingDate} (${meetingTime.start} ~ ${meetingTime.end})</span>
-                        ${syncManagerName ? `<span style="color: #cbd5e1;">|</span> <span style="display: flex; align-items: center; gap: 5px;">${syncManagerName}</span>` : ''}
-                    </div>
-                `;
-                container.appendChild(header);
-                document.body.appendChild(container);
-
+                header.style.gridColumn = 'span 3'; header.style.textAlign = 'center'; header.style.marginBottom = '30px';
+                header.innerHTML = `<h1 style="font-size: 36px; font-weight: 900; color: #0f172a; margin-bottom: 8px;">OTP FC TEAM LIST</h1><div style="font-size: 16px; font-weight: 700; color: #64748b;">DATE: ${meetingDate} (${meetingTime.start} ~ ${meetingTime.end}) | MANAGER: ${syncManagerName}</div>`;
+                container.appendChild(header); document.body.appendChild(container);
                 teamRefs.current.forEach((ref) => {
                     if (ref) {
                         const clone = ref.cloneNode(true);
                         clone.querySelectorAll('.level-tag').forEach(tag => tag.remove());
-                        clone.style.width = '100%';
-                        clone.style.transform = 'none';
-                        clone.style.boxShadow = 'none';
-                        clone.style.border = '1px solid #e2e8f0';
+                        clone.style.width = '100%'; clone.style.transform = 'none';
+                        clone.style.boxShadow = 'none'; clone.style.border = '1px solid #e2e8f0';
                         container.appendChild(clone);
                     }
                 });
-
                 try {
                     const canvas = await html2canvas(container, { backgroundColor: '#f1f5f9', scale: 2 });
-                    downloadImage(canvas.toDataURL('image/png'), `${meetingDate}_ALL_TEAMS.png`);
-                } catch (e) { alert("전체 캡쳐 중 오류가 발생했습니다."); }
-
-                document.body.removeChild(container);
-                setIsCapturing(false);
+                    const link = document.createElement('a');
+                    link.href = canvas.toDataURL('image/png'); link.download = `${meetingDate}_ALL_TEAMS.png`;
+                    link.click();
+                } catch (e) {}
+                document.body.removeChild(container); setIsCapturing(false);
             };
 
             return (
-                <div className="max-w-4xl mx-auto p-4 sm:p-8 pb-24 text-left">
-                    <header className="mb-10 text-center text-slate-900">
+                <div className="max-w-7xl mx-auto p-4 sm:p-6 pb-24 text-left">
+                    <header className="mb-8 text-center text-slate-900">
                         <h1 className="text-4xl font-black italic tracking-tighter uppercase mb-3">Team Maker</h1>
                         <div className="flex flex-col items-center gap-3">
                             <div className="inline-flex flex-col items-center bg-white px-6 py-3 rounded-[24px] border border-slate-200 shadow-sm transition-all hover:shadow-md">
@@ -365,37 +420,34 @@
                                     {meetingTime.start && (
                                         <React.Fragment>
                                             <div className="w-px h-3 bg-slate-200" />
-                                            <span className="text-sm font-black text-green-600 flex items-center gap-1">
-                                                <Icon.Clock /> {meetingTime.start} ~ {meetingTime.end}
-                                            </span>
+                                            <span className="text-sm font-black text-green-600 flex items-center gap-1"><Icon.Clock /> {meetingTime.start} ~ {meetingTime.end}</span>
                                         </React.Fragment>
                                     )}
                                 </div>
                                 <span className="text-xs font-bold text-slate-400">{selectedList.length}명 참여 확정</span>
                             </div>
                             {syncManagerName && (
-                                <div className="flex items-center gap-2 text-blue-600 font-bold text-xs uppercase tracking-wide animate-fade-in bg-blue-50 px-5 py-2 rounded-full border border-blue-100 shadow-sm">
-                                    <Icon.Shield />
-                                    <span className="font-black underline decoration-2 underline-offset-4 decoration-blue-200">{syncManagerName}</span>
+                                <div className="flex items-center gap-2 text-blue-600 font-bold text-xs uppercase tracking-wide bg-blue-50 px-5 py-2 rounded-full border border-blue-100 shadow-sm">
+                                    <Icon.Shield /> <span className="font-black underline decoration-2 underline-offset-4 decoration-blue-200">{syncManagerName}</span>
                                 </div>
                             )}
                         </div>
                     </header>
 
-                    <nav className="flex gap-2 mb-8 bg-slate-200/50 p-1.5 rounded-2xl">
+                    <nav className="flex gap-2 mb-8 bg-slate-200/50 p-1.5 rounded-2xl max-w-2xl mx-auto">
                         {['generator', 'results', 'drafts'].map(t => (
-                            <button key={t} onClick={() => setActiveTab(t)} className={`flex-1 py-3 rounded-xl font-black text-xs sm:text-sm transition-all ${activeTab === t ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                            <button key={t} onClick={() => setActiveTab(t)} className={`flex-1 py-3 rounded-xl font-black text-xs sm:text-sm transition-all ${activeTab === t ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500'}`}>
                                 {t === 'generator' ? '설정 및 생성' : t === 'results' ? '현재 편성' : '저장소'}
                             </button>
                         ))}
                     </nav>
 
                     {activeTab === 'generator' && (
-                        <div className="space-y-6 animate-fade-in text-left">
+                        <div className="space-y-6 animate-fade-in text-left max-w-5xl mx-auto text-slate-900">
                             <div className="bg-white p-6 rounded-[32px] border border-slate-200 shadow-sm">
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 border-b border-slate-50 pb-4">
-                                    <div className="flex items-center gap-2">
-                                        <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Entry Pool</h3>
+                                    <div className="flex items-center gap-2 text-left">
+                                        <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest text-left">Entry Pool</h3>
                                         <span className="text-[10px] font-black text-blue-500 bg-blue-50 px-2 py-0.5 rounded-full">{selectedList.length}명</span>
                                     </div>
                                     <div className="flex flex-wrap gap-x-4 gap-y-2 items-center">
@@ -407,38 +459,34 @@
                                         ))}
                                     </div>
                                 </div>
-                                <div className="flex flex-wrap gap-3 max-h-80 overflow-y-auto custom-scrollbar pr-2">
+                                <div className="flex flex-wrap gap-2.5 max-h-80 overflow-y-auto custom-scrollbar pr-2">
                                     {selectedList.length === 0 ? (
-                                        <p className="text-sm text-slate-300 font-bold py-4 text-center w-full">참여 가능한 인원이 없습니다.</p>
+                                        <p className="text-sm text-slate-300 font-bold py-4 text-center w-full">데이터가 없습니다.</p>
                                     ) : selectedList.sort((a, b) => {
-                                        const masterA = members.find(m => m.id === a.memberId) || {};
-                                        const masterB = members.find(m => m.id === b.memberId) || {};
-                                        const lvlA = parseInt(masterA.level || a.level || 99);
-                                        const lvlB = parseInt(masterB.level || b.level || 99);
-                                        const nA = lvlA > 6 ? lvlA - 6 : lvlA;
-                                        const nB = lvlB > 6 ? lvlB - 6 : lvlB;
-                                        if (nA !== nB) return nA - nB; 
-                                        return (masterA.name || a.name).localeCompare(masterB.name || b.name);
+                                        const nA = parseInt(members.find(m => m.id === a.memberId)?.level || a.level || 99);
+                                        const nB = parseInt(members.find(m => m.id === b.memberId)?.level || b.level || 99);
+                                        const sA = nA > 6 ? nA - 6 : nA;
+                                        const sB = nB > 6 ? nB - 6 : nB;
+                                        return sA - sB || a.name.localeCompare(b.name);
                                     }).map(p => {
-                                        const masterInfo = members.find(m => m.id === p.memberId) || {};
-                                        const levelVal = masterInfo.level || p.level;
+                                        const lvl = members.find(m => m.id === p.memberId)?.level || p.level;
                                         return (
-                                            <div key={p.id} className="px-3.5 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 flex items-center gap-2 shadow-sm transition-all hover:bg-slate-200">
-                                                <div className="flex items-center gap-1.5">
+                                            <div key={p.id} className="px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 flex items-center gap-2 shadow-sm">
+                                                <div className="flex items-center gap-1 text-left text-slate-900 leading-none">
                                                     {p.isGuest && <span className="text-[9px] font-black bg-blue-600 text-white px-1.5 rounded flex-shrink-0">G</span>}
                                                     <span className="font-black text-slate-800">{p.name}</span>
-                                                    {p.gender === '여성' && <span className="text-[10px] font-black px-1.5 py-0.5 bg-pink-100 text-pink-600 rounded">W</span>}
+                                                    {p.gender === '여성' && <span className="text-[10px] font-black px-1.5 py-0.5 bg-pink-100 text-pink-600 rounded flex-shrink-0">W</span>}
                                                 </div>
-                                                <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-lg level-tag ${getLevelColor(levelVal)}`}>{levelVal}</span>
+                                                <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-lg level-tag ${getLevelColor(lvl)}`}>{lvl}</span>
                                             </div>
                                         );
                                     })}
                                 </div>
                             </div>
 
-                            <div className="bg-white p-8 rounded-[40px] border border-slate-200 shadow-lg text-left">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 mb-8">
-                                    <div className="flex flex-col gap-2">
+                            <div className="bg-white p-8 rounded-[40px] border border-slate-200 shadow-lg text-slate-900 text-left">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 mb-8 text-left">
+                                    <div className="flex flex-col gap-2 text-left text-slate-900">
                                         <label className="text-[10px] font-black text-slate-400 ml-1 uppercase text-left">Team Count</label>
                                         <select className="p-4 bg-slate-50 rounded-2xl font-black text-lg text-left" value={teamingSettings.teamCount} onChange={e => setTeamingSettings({...teamingSettings, teamCount: parseInt(e.target.value)})}>
                                             {[2,3,4,5,6].map(v => <option key={v} value={v}>{v}개 팀 균등 편성</option>)}
@@ -451,42 +499,55 @@
                                         </label>
                                     </div>
                                 </div>
-                                <button onClick={generateTeams} className="w-full py-5 bg-blue-600 text-white rounded-[24px] font-black text-lg shadow-xl shadow-blue-100 hover:bg-blue-700 transition-all">규칙 기반 랜덤 팀 편성</button>
+                                <div className="p-5 bg-blue-50 border border-blue-100 rounded-3xl mb-8">
+                                    <h4 className="text-xs font-black text-blue-600 uppercase mb-2 flex items-center gap-1.5">
+                                        <Icon.Info /> Smart Balancing Engine
+                                    </h4>
+                                    <ul className="text-[11px] text-slate-600 font-bold space-y-1.5 text-left">
+                                        <li>• <span className="text-blue-700 font-black">격리 로직:</span> 1단 남성과 7단 여성은 어떤 경우에도 무조건 다른 팀으로 먼저 분리됩니다.</li>
+                                        <li>• <span className="text-blue-700 font-black">균등 인원:</span> 총 인원을 팀 수로 나눈 수치를 수학적으로 엄격히 준수합니다.</li>
+                                        <li>• <span className="text-blue-700 font-black">무작위성:</span> 결과 고착화를 방지하기 위해 배정 순서와 후보 팀 선택에 랜덤 노이즈를 부여합니다.</li>
+                                    </ul>
+                                </div>
+                                <button onClick={generateTeams} className="w-full py-5 bg-blue-600 text-white rounded-[24px] font-black text-lg shadow-xl shadow-blue-100 hover:bg-blue-700 transition-all">진정한 랜덤 편성 실행</button>
                             </div>
                         </div>
                     )}
 
                     {activeTab === 'results' && (
-                        <div className="animate-fade-in text-left">
+                        <div className="animate-fade-in text-slate-900 text-left">
                             {teams.length === 0 ? (
-                                <div className="py-20 text-center text-slate-300 font-black">표시할 결과가 없습니다.</div>
+                                <div className="py-20 text-center text-slate-300 font-black">결과가 없습니다.</div>
                             ) : (
                                 <>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-left">
                                         {teams.map((team, idx) => (
-                                            <div key={idx} ref={el => teamRefs.current[idx] = el} className="team-card bg-white rounded-[40px] shadow-xl overflow-hidden border border-slate-100">
-                                                <div className={`p-5 text-center font-black text-white flex justify-between items-center px-8 ${idx === 0 ? 'bg-rose-500' : idx === 1 ? 'bg-blue-500' : idx === 2 ? 'bg-emerald-600' : 'bg-orange-500'}`}>
-                                                    <span className="text-lg uppercase font-black tracking-tight">Team {idx + 1}</span>
-                                                    <span className="text-[10px] font-bold opacity-80 uppercase">{team.members.length} Players</span>
+                                            <div key={idx} ref={el => teamRefs.current[idx] = el} className="team-card bg-white rounded-[32px] shadow-xl overflow-hidden border border-slate-100 text-left">
+                                                <div className={`p-4 text-center font-black text-white flex justify-between items-center px-6 ${idx === 0 ? 'bg-rose-500' : idx === 1 ? 'bg-blue-500' : idx === 2 ? 'bg-emerald-600' : idx === 3 ? 'bg-orange-500' : 'bg-violet-600'}`}>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-base uppercase tracking-tight text-white">Team {idx + 1}</span>
+                                                        <span className="text-[10px] bg-black/20 px-2 py-0.5 rounded-full font-black text-white">{team.scoreSum} pts</span>
+                                                    </div>
+                                                    <span className="text-[10px] font-bold opacity-80 uppercase text-white">{team.members.length} 명</span>
                                                 </div>
-                                                <div className="p-6 space-y-2.5">
+                                                <div className="p-4 space-y-2 text-left">
                                                     {team.members.map((m, mIdx) => {
                                                         const isPartnerPresent = m.coupleId && selectedList.some(p => p.memberId === m.coupleId);
                                                         return (
-                                                            <div key={mIdx} className="flex items-center justify-between p-3.5 bg-slate-50 rounded-2xl hover:bg-white transition-all shadow-sm text-left">
-                                                                <div className="flex items-center gap-4 text-left">
-                                                                    <span className={`w-7 h-7 flex items-center justify-center rounded-full text-[10px] font-black ${mIdx === 2 || mIdx === 5 ? 'bg-blue-600 text-white ring-2 ring-blue-100 shadow-sm' : 'bg-slate-200 text-slate-500'}`}>{mIdx + 1}</span>
+                                                            <div key={mIdx} className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl hover:bg-white transition-all shadow-sm">
+                                                                <div className="flex items-center gap-3 text-left">
+                                                                    <span className={`w-6 h-6 flex items-center justify-center rounded-full text-[9px] font-black ${mIdx === 2 || mIdx === 5 ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-200 text-slate-500'}`}>{mIdx + 1}</span>
                                                                     <div className="flex flex-col text-left">
-                                                                        <div className="flex items-center gap-1.5 text-left">
-                                                                            {m.isGuest && <span className="text-[9px] font-black bg-blue-100 text-blue-600 px-1 rounded-sm flex-shrink-0">G</span>}
-                                                                            <span className="font-black text-slate-800 text-lg leading-none">{m.name}</span>
-                                                                            {m.gender === '여성' && <span className="text-[10px] font-black px-1.5 py-0.5 bg-pink-100 text-pink-600 rounded">W</span>}
+                                                                        <div className="flex items-center gap-1.5 text-left text-slate-900 leading-none">
+                                                                            {m.isGuest && <span className="text-[8px] font-black bg-blue-100 text-blue-600 px-1 rounded-sm">G</span>}
+                                                                            <span className="font-black text-slate-800 text-sm">{m.name}</span>
+                                                                            {m.gender === '여성' && <span className="text-[9px] font-black px-1.5 py-0.5 bg-pink-100 text-pink-600 rounded flex-shrink-0">W</span>}
                                                                         </div>
                                                                     </div>
                                                                 </div>
-                                                                <div className="flex items-center gap-3">
-                                                                    <div className="flex flex-col items-end text-slate-900">
-                                                                        <span className={`text-[11px] font-black px-2 py-0.5 rounded-lg level-tag inline-flex items-center justify-center min-w-[24px] ${getLevelColor(m.level)}`}>
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className="flex flex-col items-end text-slate-900 text-right">
+                                                                        <span className={`text-[10px] font-black px-1.5 py-0.5 rounded level-tag inline-flex items-center justify-center min-w-[20px] ${getLevelColor(m.level)}`}>
                                                                             {m.level}
                                                                         </span>
                                                                         {isPartnerPresent && <div className="text-pink-400 mt-0.5"><Icon.Heart /></div>}
@@ -499,20 +560,16 @@
                                             </div>
                                         ))}
                                     </div>
-                                    <div className="mt-10 p-8 bg-white rounded-[40px] border border-slate-200 shadow-lg space-y-8 text-left">
-                                        <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                                            <button onClick={generateTeams} className="flex-1 max-w-xs flex items-center justify-center gap-2 px-8 py-5 bg-slate-900 text-white rounded-3xl font-black text-sm shadow-lg hover:bg-slate-800 transition-all text-left">
-                                                <Icon.Refresh /> 다시 섞기
-                                            </button>
-                                            <button onClick={saveDraft} className="flex-1 max-w-xs flex items-center justify-center gap-2 px-8 py-5 bg-blue-600 text-white rounded-3xl font-black text-sm shadow-xl hover:bg-blue-700 transition-all text-left">
-                                                <Icon.Bookmark /> 현재 편성 임시저장
-                                            </button>
+                                    <div className="mt-10 p-6 bg-white rounded-[40px] border border-slate-200 shadow-lg space-y-6 max-w-4xl mx-auto text-left text-slate-900">
+                                        <div className="flex flex-col sm:flex-row gap-3 justify-center text-left">
+                                            <button onClick={generateTeams} className="flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-slate-900 text-white rounded-2xl font-black text-sm hover:bg-slate-800 transition-all text-left"><Icon.Refresh /> 완전 새로 섞기</button>
+                                            <button onClick={() => setIsSaveModalOpen(true)} className="flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-blue-600 text-white rounded-2xl font-black text-sm shadow-xl hover:bg-blue-700 transition-all text-left"><Icon.Bookmark /> 현재 편성 임시저장</button>
                                         </div>
-                                        <div className="border-t border-slate-100 pt-8 text-left">
+                                        <div className="border-t border-slate-100 pt-6 text-left">
                                             <p className="text-center text-[11px] font-black text-slate-400 uppercase tracking-widest mb-4">Export Options</p>
-                                            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                                                <button onClick={captureIndividualTeams} disabled={isCapturing} className="flex-1 max-w-xs flex items-center justify-center gap-2 px-8 py-4 bg-slate-100 text-slate-700 rounded-2xl font-black text-xs hover:bg-slate-200 transition-all disabled:opacity-50"><Icon.Camera /> 팀별 개별 저장</button>
-                                                <button onClick={captureAllInOne} disabled={isCapturing} className="flex-1 max-w-xs flex items-center justify-center gap-2 px-8 py-4 bg-blue-50 text-blue-600 rounded-2xl font-black text-xs hover:bg-blue-100 transition-all disabled:opacity-50"><Icon.Download /> 한 장으로 저장 (3팀씩)</button>
+                                            <div className="flex flex-col sm:flex-row gap-3 justify-center text-left">
+                                                <button onClick={captureIndividualTeams} disabled={isCapturing} className="flex-1 max-w-xs flex items-center justify-center gap-2 px-8 py-4 bg-slate-100 text-slate-700 rounded-2xl font-black text-xs hover:bg-slate-200 transition-all disabled:opacity-50 text-left text-slate-700"><Icon.Camera /> 팀별 개별 저장</button>
+                                                <button onClick={captureAllInOne} disabled={isCapturing} className="flex-1 max-w-xs flex items-center justify-center gap-2 px-8 py-4 bg-blue-50 text-blue-600 rounded-2xl font-black text-xs hover:bg-blue-100 transition-all disabled:opacity-50 text-left text-blue-600"><Icon.Download /> 한 장으로 저장 (3팀씩)</button>
                                             </div>
                                         </div>
                                     </div>
@@ -522,39 +579,75 @@
                     )}
 
                     {activeTab === 'drafts' && (
-                        <div className="animate-fade-in space-y-4 text-left">
+                        <div className="animate-fade-in space-y-4 text-left max-w-3xl mx-auto text-slate-900">
                             {savedDrafts.length === 0 ? (
                                 <div className="py-20 text-center text-slate-300 font-black">기록이 없습니다.</div>
                             ) : savedDrafts.map(draft => (
-                                <div key={draft.id} className="bg-white p-6 rounded-[32px] border border-slate-200 shadow-sm flex items-center justify-between transition-all hover:border-blue-300 text-left text-slate-900">
+                                <div key={draft.id} className="bg-white p-6 rounded-[32px] border border-slate-200 shadow-sm flex items-center justify-between transition-all hover:border-blue-300 text-slate-900">
                                     <div className="text-left text-slate-900">
-                                        <p className="text-lg font-black text-slate-900">{draft.timeLabel} 편성</p>
-                                        <div className="flex flex-col gap-1 mt-1 text-left text-slate-900">
-                                            <div className="flex gap-2 items-center leading-none text-slate-900">
-                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{draft.meetingDate}</span>
+                                        <p className="text-lg font-black">{draft.timeLabel} 편성</p>
+                                        <div className="flex flex-col gap-1 mt-1 text-slate-900 text-left leading-none">
+                                            <div className="flex gap-2 items-center leading-none text-slate-900 text-left">
+                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-left">{draft.meetingDate}</span>
                                                 {draft.meetingTimeRange && (
                                                     <React.Fragment>
-                                                        <div className="w-px h-2 bg-slate-200" />
-                                                        <span className="text-[10px] font-bold text-green-600 uppercase tracking-widest">{draft.meetingTimeRange}</span>
+                                                        <div className="w-px h-2 bg-slate-200 text-left" />
+                                                        <span className="text-[10px] font-bold text-green-600 uppercase tracking-widest text-left">{draft.meetingTimeRange}</span>
                                                     </React.Fragment>
                                                 )}
-                                                <div className="w-px h-2 bg-slate-200" />
-                                                <span className="text-[10px] font-bold text-blue-500 uppercase tracking-widest">{draft.teams.length}개 팀</span>
+                                                <div className="w-px h-2 bg-slate-200 text-left" />
+                                                <span className="text-[10px] font-bold text-blue-500 uppercase tracking-widest text-left">{draft.teams.length}개 팀</span>
                                             </div>
-                                            {draft.managerName && (
-                                                <div className="flex items-center gap-1 mt-0.5 opacity-60">
-                                                    <Icon.Shield size={10} />
-                                                    <span className="text-[9px] text-slate-400 font-bold leading-none uppercase tracking-tighter">{draft.managerName}</span>
-                                                </div>
-                                            )}
                                         </div>
                                     </div>
                                     <div className="flex gap-2 text-left">
-                                        <button onClick={() => loadDraft(draft)} className="px-5 py-2.5 bg-blue-50 text-blue-600 rounded-xl font-black text-xs hover:bg-blue-100 transition-all">불러오기</button>
-                                        <button onClick={() => deleteDraft(draft.id)} className="p-2.5 text-slate-300 hover:text-red-500 transition-all"><Icon.Trash /></button>
+                                        <button onClick={() => loadDraft(draft)} className="px-5 py-2.5 bg-blue-50 text-blue-600 rounded-xl font-black text-xs hover:bg-blue-100 transition-all text-left text-blue-600">불러오기</button>
+                                        <button onClick={() => openDeleteModal(draft.id)} className="p-2.5 text-slate-300 hover:text-red-500 transition-all text-left text-slate-300"><Icon.Trash /></button>
                                     </div>
                                 </div>
                             ))}
+                        </div>
+                    )}
+
+                    {/* 저장 확인 모달 */}
+                    {isSaveModalOpen && (
+                        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 modal-backdrop">
+                            <div className="bg-white w-full max-w-sm rounded-[32px] shadow-2xl overflow-hidden animate-fade-in p-8 text-center">
+                                <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                                    <Icon.AlertCircle />
+                                </div>
+                                <h3 className="text-xl font-black text-slate-900 mb-2">편성안 저장</h3>
+                                <p className="text-sm font-bold text-slate-500 mb-8 leading-relaxed">
+                                    현재 구성된 팀 편성 결과(3개 팀)를<br/>저장소에 임시로 기록하시겠습니까?
+                                </p>
+                                <div className="flex gap-3">
+                                    <button onClick={() => setIsSaveModalOpen(false)} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-sm hover:bg-slate-200 transition-all text-slate-600">취소</button>
+                                    <button onClick={confirmSaveDraft} disabled={isProcessing} className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black text-sm shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all disabled:opacity-50">
+                                        {isProcessing ? "저장 중..." : "저장하기"}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 삭제 확인 모달 */}
+                    {isDeleteModalOpen && (
+                        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 modal-backdrop text-slate-900">
+                            <div className="bg-white w-full max-w-sm rounded-[32px] shadow-2xl overflow-hidden animate-fade-in p-8 text-center">
+                                <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                                    <Icon.Trash />
+                                </div>
+                                <h3 className="text-xl font-black text-slate-900 mb-2">기록 삭제</h3>
+                                <p className="text-sm font-bold text-slate-500 mb-8 leading-relaxed">
+                                    해당 편성 기록을 영구적으로 삭제하시겠습니까?<br/>삭제된 데이터는 복구할 수 없습니다.
+                                </p>
+                                <div className="flex gap-3">
+                                    <button onClick={() => {setIsDeleteModalOpen(false); setTargetDeleteId(null);}} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-sm hover:bg-slate-200 transition-all">취소</button>
+                                    <button onClick={confirmDeleteDraft} disabled={isProcessing} className="flex-1 py-4 bg-rose-600 text-white rounded-2xl font-black text-sm shadow-lg shadow-rose-100 hover:bg-rose-700 transition-all disabled:opacity-50">
+                                        {isProcessing ? "삭제 중..." : "삭제하기"}
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     )}
                 </div>
