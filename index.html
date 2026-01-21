@@ -213,19 +213,26 @@
                 const finalTeams = resultTeams.map(teamMembers => {
                     const currentTeamSize = teamMembers.length;
                     if (currentTeamSize === 0) return { members: [] };
+
                     const females = teamMembers.filter(m => m.gender === '여성').sort((a, b) => a.level - b.level);
                     const slot3 = (currentTeamSize >= 3 && females.length > 0) ? females.shift() : null;
                     const slot6 = (currentTeamSize >= 6 && females.length > 0) ? females.shift() : null;
-                    const others = teamMembers.filter(m => m !== slot3 && m !== slot6).sort((a, b) => a.level - b.level);
+
+                    const others = teamMembers
+                        .filter(m => m !== slot3 && m !== slot6)
+                        .sort((a, b) => a.level - b.level);
+
                     const reordered = Array(currentTeamSize).fill(null);
                     if (slot3) reordered[2] = slot3;
                     if (slot6) reordered[5] = slot6;
+
                     for (let i = 0; i < currentTeamSize; i++) {
                         if (reordered[i] === null) {
                             const nextPerson = others.shift();
                             if (nextPerson) reordered[i] = nextPerson;
                         }
                     }
+
                     return { members: reordered.filter(m => m !== null) };
                 });
 
@@ -276,14 +283,14 @@
                     for (let i = 0; i < teams.length; i++) {
                         const element = teamRefs.current[i];
                         if (element) {
-                            // 캡쳐 전 등급 표시 숨기기
+                            // 캡쳐 시 등급 표시 숨기기 (class="level-tag" 타겟팅)
                             const levelTags = element.querySelectorAll('.level-tag');
                             levelTags.forEach(tag => tag.style.display = 'none');
 
                             const canvas = await html2canvas(element, { backgroundColor: '#f1f5f9', scale: 2 });
                             downloadImage(canvas.toDataURL('image/png'), `${meetingDate}_TEAM_${i + 1}.png`);
 
-                            // 캡쳐 후 등급 표시 복구
+                            // 캡쳐 완료 후 등급 표시 복구
                             levelTags.forEach(tag => tag.style.display = 'block');
                         }
                     }
@@ -321,7 +328,7 @@
                 teamRefs.current.forEach((ref) => {
                     if (ref) {
                         const clone = ref.cloneNode(true);
-                        // 복제된 노드에서 등급 표시 제거
+                        // 복제된 카드에서 등급 표시(.level-tag) 완전 제거
                         clone.querySelectorAll('.level-tag').forEach(tag => tag.remove());
                         
                         clone.style.width = '100%';
@@ -378,7 +385,7 @@
                         ))}
                     </nav>
 
-                    {/* Generator Tab */}
+                    {/* Generator Tab: 등급 노출 */}
                     {activeTab === 'generator' && (
                         <div className="space-y-6 animate-fade-in text-left">
                             <div className="bg-white p-6 rounded-[32px] border border-slate-200 shadow-sm">
@@ -386,13 +393,17 @@
                                 <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto custom-scrollbar pr-2">
                                     {selectedList.length === 0 ? (
                                         <p className="text-sm text-slate-300 font-bold py-4 text-center w-full">참여 가능한 인원이 없습니다.</p>
-                                    ) : selectedList.sort((a,b)=>a.name.localeCompare(b.name)).map(p => (
-                                        <div key={p.id} className="px-3 py-1.5 bg-slate-50 border border-slate-100 rounded-lg text-xs font-bold text-slate-600 flex items-center gap-1.5">
-                                            {p.isGuest && <span className="text-[9px] font-black bg-blue-100 text-blue-600 px-1 rounded-sm flex-shrink-0">G</span>}
-                                            {p.name}
-                                            {p.gender === '여성' && <span className="text-[9px] font-black text-pink-500">W</span>}
-                                        </div>
-                                    ))}
+                                    ) : selectedList.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
+                                        const masterInfo = members.find(m => m.id === p.memberId) || {};
+                                        return (
+                                            <div key={p.id} className="px-3 py-1.5 bg-slate-50 border border-slate-100 rounded-lg text-xs font-bold text-slate-600 flex items-center gap-1.5">
+                                                {p.isGuest && <span className="text-[9px] font-black bg-blue-100 text-blue-600 px-1 rounded-sm flex-shrink-0">G</span>}
+                                                {p.name}
+                                                {p.gender === '여성' && <span className="text-[9px] font-black text-pink-500">W</span>}
+                                                <span className="text-[9px] opacity-40 level-tag">{masterInfo.level || p.level}단</span>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
 
@@ -416,6 +427,7 @@
                         </div>
                     )}
 
+                    {/* Results Tab: 등급 노출 (캡쳐 시에만 숨김) */}
                     {activeTab === 'results' && (
                         <div className="animate-fade-in">
                             {teams.length === 0 ? (
