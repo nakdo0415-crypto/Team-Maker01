@@ -7,15 +7,19 @@
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    
     <!-- React & ReactDOM -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
     <!-- Babel -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <!-- Firebase SDK (Compat Version) -->
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    
+    <!-- Firebase SDK (Compat Version 11.6.1) -->
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js"></script>
+    
     <!-- html2canvas for capturing -->
     <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
     
@@ -25,10 +29,12 @@
             font-family: 'Pretendard', sans-serif; 
             background-color: #f1f5f9;
             user-select: none;
+            -webkit-tap-highlight-color: transparent;
         }
-        .team-card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-        .team-card:hover { transform: translateY(-4px); }
-        .animate-fade-in { animation: fadeIn 0.2s ease-out; }
+        /* 팀 카드 호버 애니메이션 제거 */
+        .team-card { transition: box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        
+        .animate-fade-in { animation: fadeIn 0.3s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         
         button:active { transform: scale(0.96); }
@@ -41,6 +47,34 @@
             animation: backdropFadeIn 0.2s ease-out;
         }
         @keyframes backdropFadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* 드래그 중인 아이템 스타일 (원본 위치) */
+        .dragging {
+            opacity: 0.4;
+            border: 2px dashed #3b82f6 !important;
+            background-color: #eff6ff !important;
+            transform: scale(0.95);
+            position: relative;
+            filter: grayscale(100%);
+        }
+        /* 드래그 중임을 알리는 배지 */
+        .dragging::after {
+            content: "이동 중...";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 10px;
+            font-weight: 900;
+            color: #2563eb;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 4px 8px;
+            border-radius: 9999px;
+            pointer-events: none;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            white-space: nowrap;
+            z-index: 20;
+        }
     </style>
 </head>
 <body>
@@ -53,6 +87,7 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo, useRef } = React;
 
+        // Firebase Initialization
         const firebaseConfig = {
             apiKey: "AIzaSyCAcQzliuWJTB8vPm9gb0vsyR8pIAx7YTw",
             authDomain: "otp-fc-check.firebaseapp.com",
@@ -62,11 +97,15 @@
             appId: "1:907414776392:web:0a29a660bb956e5a40467d"
         };
 
-        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        if (firebase.apps.length) {
+            // Already initialized
+        } else {
+            firebase.initializeApp(firebaseConfig);
+        }
+        
         const auth = firebase.auth();
         const db = firebase.firestore();
         const APP_ID = 'otp-fc-attendance';
-
         const getCol = (name) => db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection(name);
 
         const Icon = {
@@ -103,7 +142,6 @@
             return Math.max(1, 7 - standardLvl); 
         };
 
-        // 배열 셔플 유틸리티 (강력한 셔플)
         const shuffleArray = (array) => {
             const arr = [...array];
             for (let i = arr.length - 1; i > 0; i--) {
@@ -124,8 +162,12 @@
             const [teams, setTeams] = useState([]);
             const [activeTab, setActiveTab] = useState('generator');
             const [isCapturing, setIsCapturing] = useState(false);
+            const [user, setUser] = useState(null);
 
-            // 모달 상태
+            // Drag & Drop State
+            const [draggedItem, setDraggedItem] = useState(null);
+            const [dragOverItem, setDragOverItem] = useState(null);
+
             const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
             const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
             const [targetDeleteId, setTargetDeleteId] = useState(null);
@@ -137,10 +179,23 @@
                 const init = async () => {
                     try {
                         await auth.signInAnonymously();
+                    } catch (e) { 
+                        console.error("Auth error:", e);
                         document.getElementById('loading-screen').style.display = 'none';
-                    } catch (e) { console.error(e); }
+                    }
                 };
                 init();
+                const unsubscribeAuth = auth.onAuthStateChanged((u) => {
+                    if (u) {
+                        setUser(u);
+                        document.getElementById('loading-screen').style.display = 'none';
+                    }
+                });
+                return () => unsubscribeAuth();
+            }, []);
+
+            useEffect(() => {
+                if (!user) return;
                 const unsubMembers = getCol('members').onSnapshot(snap => setMembers(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
                 const unsubSession = getCol('weekly_session').onSnapshot(snap => setSessionData(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
                 const unsubSettings = db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('settings').doc('meeting_time').onSnapshot(doc => {
@@ -156,7 +211,7 @@
                     setSavedDrafts(data.sort((a,b) => b.createdAt.localeCompare(a.createdAt)));
                 });
                 return () => { unsubMembers(); unsubSession(); unsubSettings(); unsubDrafts(); };
-            }, []);
+            }, [user]);
 
             const selectedList = useMemo(() => {
                 if (!meetingDate) return [];
@@ -176,12 +231,45 @@
                 return stats;
             }, [selectedList, members]);
 
+            // 여성을 3번(index 2)이나 6번(index 5)에 자동 배치하는 함수
+            const reorderMembersWithGenderRule = (memberList) => {
+                const size = memberList.length;
+                if (size === 0) return [];
+
+                const females = memberList.filter(m => m.gender === '여성');
+                const others = memberList.filter(m => m.gender !== '여성');
+                
+                const result = new Array(size).fill(null);
+
+                // 여성 배치 로직
+                // 1. 3번 자리 (index 2)
+                if (females.length > 0 && size > 2) {
+                    result[2] = females.shift();
+                }
+                // 2. 6번 자리 (index 5) - 팀 크기가 6명 이상일 때만
+                if (females.length > 0 && size > 5) {
+                    result[5] = females.shift();
+                }
+                
+                // 나머지 자리 채우기
+                for (let i = 0; i < size; i++) {
+                    if (result[i] === null) {
+                        // 남성을 먼저 배치하고, 남은 여성이 있다면 그 다음 배치
+                        if (others.length > 0) {
+                            result[i] = others.shift();
+                        } else if (females.length > 0) {
+                            result[i] = females.shift();
+                        }
+                    }
+                }
+                return result.filter(m => m !== null);
+            };
+
             const generateTeams = () => {
                 const { teamCount, keepCouples } = teamingSettings;
                 const totalAttendees = selectedList.length;
                 if (totalAttendees < teamCount) return;
 
-                // 1. 데이터 보충
                 let pool = selectedList.map(p => {
                     const masterInfo = members.find(m => m.id === p.memberId) || {};
                     const lvl = parseInt(masterInfo.level || p.level || 99);
@@ -196,7 +284,6 @@
                     };
                 });
 
-                // 2. 유닛 구성
                 let units = [];
                 let processedIds = new Set();
                 if (keepCouples) {
@@ -225,7 +312,6 @@
                     units = pool.map(p => ({ members: [p], totalPoints: p.points, hasFemale: p.gender === '여성', isTopMale: p.level === 1, isTopFemale: p.level === 7, avgSkill: p.points }));
                 }
 
-                // 3. 팀 초기화 (균등 인원 강제)
                 const baseSize = Math.floor(totalAttendees / teamCount);
                 const teamsWithExtra = totalAttendees % teamCount;
                 const resultTeams = Array.from({ length: teamCount }, (_, i) => ({ 
@@ -236,10 +322,8 @@
                     hasTopFemale: false
                 }));
 
-                // 4. 배정 로직 (무작위성 대폭 강화)
-                let unitsToAssign = shuffleArray(shuffleArray(units)); // 더블 셔플
+                let unitsToAssign = shuffleArray(shuffleArray(units));
 
-                // A. 최강자(남1 & 여7) 강제 격리 찢기
                 const topMaleUnit = unitsToAssign.find(u => u.isTopMale);
                 const topFemaleUnit = unitsToAssign.find(u => u.isTopFemale);
 
@@ -247,24 +331,17 @@
                     const randomIndices = shuffleArray(Array.from({length: teamCount}, (_, i) => i));
                     const maleIdx = randomIndices[0];
                     const femaleIdx = randomIndices[1];
-                    
-                    // 남1 배정
                     resultTeams[maleIdx].members.push(...topMaleUnit.members);
                     resultTeams[maleIdx].scoreSum += topMaleUnit.totalPoints;
                     resultTeams[maleIdx].hasTopMale = true;
-                    
-                    // 여7 배정
                     resultTeams[femaleIdx].members.push(...topFemaleUnit.members);
                     resultTeams[femaleIdx].scoreSum += topFemaleUnit.totalPoints;
                     resultTeams[femaleIdx].hasTopFemale = true;
-
                     unitsToAssign = unitsToAssign.filter(u => u !== topMaleUnit && u !== topFemaleUnit);
                 }
 
-                // B. 나머지 배정
                 const assignByBalancedRandom = (unitList, isFemalePriority = false) => {
                     const sorted = shuffleArray(unitList).sort((a, b) => b.avgSkill - a.avgSkill || Math.random() - 0.5);
-
                     sorted.forEach(unit => {
                         let candidates = resultTeams
                             .map((team, idx) => ({ 
@@ -276,17 +353,12 @@
                                 hasTopMale: team.hasTopMale
                             }))
                             .filter(t => t.tCount + unit.members.length <= t.target);
-
-                        // 격리 원칙 재확인
                         if (unit.isTopFemale) candidates = candidates.filter(c => !c.hasTopMale);
                         if (unit.isTopMale) candidates = candidates.filter(c => !resultTeams[c.idx].hasTopFemale);
-
                         let targetIdx = -1;
                         if (candidates.length > 0) {
                             const sortedCandidates = candidates.sort((a, b) => {
-                                // 전력 차이가 거의 없으면(0.5점 이내) 랜덤으로 선택하여 고착화 방지
                                 if (Math.abs(a.score - b.score) < 0.5) return Math.random() - 0.5;
-                                
                                 if (isFemalePriority && unit.hasFemale) {
                                     return (a.fCount - b.fCount) || (a.score - b.score);
                                 }
@@ -296,7 +368,6 @@
                         } else {
                             targetIdx = resultTeams.findIndex(t => t.members.length < t.targetSize);
                         }
-
                         resultTeams[targetIdx].members.push(...unit.members);
                         resultTeams[targetIdx].scoreSum += unit.totalPoints;
                         if (unit.isTopMale) resultTeams[targetIdx].hasTopMale = true;
@@ -307,26 +378,79 @@
                 assignByBalancedRandom(unitsToAssign.filter(u => u.hasFemale), true);
                 assignByBalancedRandom(unitsToAssign.filter(u => !u.hasFemale), false);
 
-                // 5. 최종 자리 배치 (여성 3/6번)
                 const finalTeams = resultTeams.map(t => {
-                    const mlist = t.members;
-                    const size = mlist.length;
-                    const teamFemales = mlist.filter(m => m.gender === '여성').sort((a, b) => a.level - b.level);
-                    const others = mlist.filter(m => m.gender !== '여성').sort((a, b) => a.level - b.level);
-
-                    const reordered = Array(size).fill(null);
-                    if (size >= 3 && teamFemales.length > 0) reordered[2] = teamFemales.shift();
-                    if (size >= 6 && teamFemales.length > 0) reordered[5] = teamFemales.shift();
-
-                    const combinedRemaining = shuffleArray([...teamFemales, ...others]).sort((a, b) => a.level - b.level);
-                    for (let i = 0; i < size; i++) {
-                        if (reordered[i] === null) reordered[i] = combinedRemaining.shift();
-                    }
-                    return { members: reordered.filter(m => m !== null), scoreSum: Math.round(t.scoreSum * 10) / 10 };
+                    const reordered = reorderMembersWithGenderRule(t.members);
+                    return { members: reordered, scoreSum: Math.round(t.scoreSum * 10) / 10 };
                 });
 
                 setTeams(finalTeams);
                 setActiveTab('results');
+            };
+
+            // Drag & Drop Handlers
+            const handleDragStart = (e, teamIdx, memberIdx) => {
+                setDraggedItem({ teamIdx, memberIdx });
+                e.dataTransfer.effectAllowed = 'move';
+            };
+
+            const handleDragOver = (e, teamIdx, memberIdx) => {
+                e.preventDefault(); 
+                if (dragOverItem?.teamIdx !== teamIdx || dragOverItem?.memberIdx !== memberIdx) {
+                    setDragOverItem({ teamIdx, memberIdx });
+                }
+            };
+
+            const handleDragEnd = () => {
+                setDraggedItem(null);
+                setDragOverItem(null);
+            };
+
+            const handleDrop = (e, targetTeamIdx, targetMemberIdx) => {
+                e.preventDefault();
+                setDragOverItem(null); 
+
+                if (!draggedItem) return;
+
+                const { teamIdx: sourceTeamIdx, memberIdx: sourceMemberIdx } = draggedItem;
+
+                if (sourceTeamIdx === targetTeamIdx && sourceMemberIdx === targetMemberIdx) {
+                    setDraggedItem(null);
+                    return;
+                }
+
+                const newTeams = [...teams];
+                const sourceTeam = newTeams[sourceTeamIdx];
+                const targetTeam = newTeams[targetTeamIdx];
+
+                const [movedMember] = sourceTeam.members.splice(sourceMemberIdx, 1);
+                
+                if (sourceTeamIdx === targetTeamIdx) {
+                    // targetMemberIdx가 null인 경우(맨 뒤로 이동) 보정 필요
+                    const actualTargetIdx = (targetMemberIdx === null || targetMemberIdx === undefined) 
+                        ? targetTeam.members.length 
+                        : targetMemberIdx;
+                    
+                    targetTeam.members.splice(actualTargetIdx, 0, movedMember);
+                } else {
+                    if (targetMemberIdx === undefined || targetMemberIdx === null) {
+                        targetTeam.members.push(movedMember);
+                    } else {
+                        targetTeam.members.splice(targetMemberIdx, 0, movedMember);
+                    }
+                }
+
+                sourceTeam.scoreSum = Math.round(sourceTeam.members.reduce((acc, cur) => acc + cur.points, 0) * 10) / 10;
+                if (sourceTeamIdx !== targetTeamIdx) {
+                    targetTeam.scoreSum = Math.round(targetTeam.members.reduce((acc, cur) => acc + cur.points, 0) * 10) / 10;
+                }
+
+                newTeams[sourceTeamIdx].members = reorderMembersWithGenderRule(newTeams[sourceTeamIdx].members);
+                if (sourceTeamIdx !== targetTeamIdx) {
+                    newTeams[targetTeamIdx].members = reorderMembersWithGenderRule(newTeams[targetTeamIdx].members);
+                }
+
+                setTeams(newTeams);
+                setDraggedItem(null);
             };
 
             const confirmSaveDraft = async () => {
@@ -459,28 +583,84 @@
                                         ))}
                                     </div>
                                 </div>
-                                <div className="flex flex-wrap gap-2.5 max-h-80 overflow-y-auto custom-scrollbar pr-2">
-                                    {selectedList.length === 0 ? (
-                                        <p className="text-sm text-slate-300 font-bold py-4 text-center w-full">데이터가 없습니다.</p>
-                                    ) : selectedList.sort((a, b) => {
-                                        const nA = parseInt(members.find(m => m.id === a.memberId)?.level || a.level || 99);
-                                        const nB = parseInt(members.find(m => m.id === b.memberId)?.level || b.level || 99);
-                                        const sA = nA > 6 ? nA - 6 : nA;
-                                        const sB = nB > 6 ? nB - 6 : nB;
-                                        return sA - sB || a.name.localeCompare(b.name);
-                                    }).map(p => {
-                                        const lvl = members.find(m => m.id === p.memberId)?.level || p.level;
-                                        return (
-                                            <div key={p.id} className="px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 flex items-center gap-2 shadow-sm">
-                                                <div className="flex items-center gap-1 text-left text-slate-900 leading-none">
-                                                    {p.isGuest && <span className="text-[9px] font-black bg-blue-600 text-white px-1.5 rounded flex-shrink-0">G</span>}
-                                                    <span className="font-black text-slate-800">{p.name}</span>
-                                                    {p.gender === '여성' && <span className="text-[10px] font-black px-1.5 py-0.5 bg-pink-100 text-pink-600 rounded flex-shrink-0">W</span>}
+                                
+                                {/* Entry Pool Split Layout */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8 max-h-[500px] overflow-y-auto custom-scrollbar pr-2">
+                                    {(() => {
+                                        // 성별로 분류 및 정렬 함수
+                                        const sortMembers = (list) => {
+                                            return [...list].sort((a, b) => {
+                                                const memberA = members.find(m => m.id === a.memberId) || {};
+                                                const memberB = members.find(m => m.id === b.memberId) || {};
+                                                
+                                                const nA = parseInt(memberA.level || a.level || 99);
+                                                const nB = parseInt(memberB.level || b.level || 99);
+                                                const sA = nA > 6 ? nA - 6 : nA;
+                                                const sB = nB > 6 ? nB - 6 : nB;
+                                                
+                                                if (sA !== sB) return sA - sB;
+                                                return (memberA.name || a.name || '').localeCompare(memberB.name || b.name || '');
+                                            });
+                                        };
+
+                                        const maleMembers = selectedList.filter(p => {
+                                            const m = members.find(x => x.id === p.memberId) || {};
+                                            return (m.gender || p.gender || '남성') === '남성';
+                                        });
+
+                                        const femaleMembers = selectedList.filter(p => {
+                                            const m = members.find(x => x.id === p.memberId) || {};
+                                            return (m.gender || p.gender || '남성') === '여성';
+                                        });
+
+                                        const renderMemberCard = (p) => {
+                                            const lvl = members.find(m => m.id === p.memberId)?.level || p.level;
+                                            return (
+                                                <div key={p.id} className="px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 flex items-center gap-2 shadow-sm">
+                                                    <div className="flex items-center gap-1 text-left text-slate-900 leading-none">
+                                                        <span className="font-black text-slate-800">{p.name}</span>
+                                                        {p.gender === '여성' && <span className="text-[10px] font-black px-1.5 py-0.5 bg-pink-100 text-pink-600 rounded flex-shrink-0">W</span>}
+                                                        {p.isGuest && <span className="text-[9px] font-black bg-blue-600 text-white px-1.5 rounded flex-shrink-0">G</span>}
+                                                    </div>
+                                                    <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-lg level-tag ${getLevelColor(lvl)}`}>{lvl}</span>
                                                 </div>
-                                                <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-lg level-tag ${getLevelColor(lvl)}`}>{lvl}</span>
-                                            </div>
+                                            );
+                                        };
+
+                                        return (
+                                            <>
+                                                {/* Male Section */}
+                                                <div className="flex flex-col gap-2">
+                                                    <div className="sticky top-0 bg-white/95 backdrop-blur z-10 py-2 border-b border-slate-100 flex justify-between items-center mb-2">
+                                                        <span className="text-xs font-black text-blue-600 flex items-center gap-1.5 uppercase tracking-wider">
+                                                            Male Player 
+                                                            <span className="bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full text-[10px]">{maleMembers.length}</span>
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex flex-wrap gap-2 content-start min-h-[50px]">
+                                                        {maleMembers.length === 0 ? (
+                                                            <div className="w-full text-center py-4 text-xs text-slate-300 font-bold">남성 플레이어가 없습니다.</div>
+                                                        ) : sortMembers(maleMembers).map(renderMemberCard)}
+                                                    </div>
+                                                </div>
+
+                                                {/* Female Section */}
+                                                <div className="flex flex-col gap-2 md:border-l md:border-slate-50 md:pl-4">
+                                                    <div className="sticky top-0 bg-white/95 backdrop-blur z-10 py-2 border-b border-slate-100 flex justify-between items-center mb-2">
+                                                        <span className="text-xs font-black text-pink-500 flex items-center gap-1.5 uppercase tracking-wider">
+                                                            Female Player
+                                                            <span className="bg-pink-100 text-pink-600 px-2 py-0.5 rounded-full text-[10px]">{femaleMembers.length}</span>
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex flex-wrap gap-2 content-start min-h-[50px]">
+                                                        {femaleMembers.length === 0 ? (
+                                                            <div className="w-full text-center py-4 text-xs text-slate-300 font-bold">여성 플레이어가 없습니다.</div>
+                                                        ) : sortMembers(femaleMembers).map(renderMemberCard)}
+                                                    </div>
+                                                </div>
+                                            </>
                                         );
-                                    })}
+                                    })()}
                                 </div>
                             </div>
 
@@ -509,7 +689,7 @@
                                         <li>• <span className="text-blue-700 font-black">무작위성:</span> 결과 고착화를 방지하기 위해 배정 순서와 후보 팀 선택에 랜덤 노이즈를 부여합니다.</li>
                                     </ul>
                                 </div>
-                                <button onClick={generateTeams} className="w-full py-5 bg-blue-600 text-white rounded-[24px] font-black text-lg shadow-xl shadow-blue-100 hover:bg-blue-700 transition-all">진정한 랜덤 편성 실행</button>
+                                <button onClick={generateTeams} className="w-full py-5 bg-blue-600 text-white rounded-[24px] font-black text-lg shadow-xl shadow-blue-100 hover:bg-blue-700 transition-all">편성 시작</button>
                             </div>
                         </div>
                     )}
@@ -520,49 +700,96 @@
                                 <div className="py-20 text-center text-slate-300 font-black">결과가 없습니다.</div>
                             ) : (
                                 <>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-left">
+                                    <div className={`grid gap-1.5 md:gap-4 text-left ${teams.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
                                         {teams.map((team, idx) => (
-                                            <div key={idx} ref={el => teamRefs.current[idx] = el} className="team-card bg-white rounded-[32px] shadow-xl overflow-hidden border border-slate-100 text-left">
-                                                <div className={`p-4 text-center font-black text-white flex justify-between items-center px-6 ${idx === 0 ? 'bg-rose-500' : idx === 1 ? 'bg-blue-500' : idx === 2 ? 'bg-emerald-600' : idx === 3 ? 'bg-orange-500' : 'bg-violet-600'}`}>
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="text-base uppercase tracking-tight text-white">Team {idx + 1}</span>
-                                                        <span className="text-[10px] bg-black/20 px-2 py-0.5 rounded-full font-black text-white">{team.scoreSum} pts</span>
+                                            <div 
+                                                key={idx} 
+                                                ref={el => teamRefs.current[idx] = el} 
+                                                className="team-card bg-white rounded-2xl md:rounded-[32px] shadow-lg md:shadow-xl overflow-hidden border border-slate-100 text-left h-full flex flex-col"
+                                                onDragOver={(e) => {
+                                                    e.preventDefault();
+                                                    handleDragOver(e, idx, null); // Container hover implies dragging to end/empty space
+                                                }}
+                                                onDrop={(e) => {
+                                                    e.preventDefault();
+                                                    handleDrop(e, idx, null);
+                                                }}
+                                            >
+                                                <div className={`p-2 md:p-4 text-center font-black text-white flex flex-col md:flex-row justify-between items-center px-2 md:px-6 ${idx === 0 ? 'bg-rose-500' : idx === 1 ? 'bg-blue-500' : idx === 2 ? 'bg-emerald-600' : idx === 3 ? 'bg-orange-500' : 'bg-violet-600'}`}>
+                                                    <div className="flex flex-col md:flex-row items-center gap-0.5 md:gap-2">
+                                                        <span className="text-[10px] md:text-base uppercase tracking-tight text-white whitespace-nowrap">Team {idx + 1}</span>
+                                                        <span className="text-[8px] md:text-[10px] bg-black/20 px-1.5 py-0.5 rounded-full font-black text-white whitespace-nowrap">{team.scoreSum} pts</span>
                                                     </div>
-                                                    <span className="text-[10px] font-bold opacity-80 uppercase text-white">{team.members.length} 명</span>
+                                                    <span className="text-[8px] md:text-[10px] font-bold opacity-80 uppercase text-white mt-1 md:mt-0">{team.members.length} 명</span>
                                                 </div>
-                                                <div className="p-4 space-y-2 text-left">
+                                                <div className="p-1.5 md:p-4 space-y-1 md:space-y-2 text-left min-h-[100px] flex-grow">
                                                     {team.members.map((m, mIdx) => {
                                                         const isPartnerPresent = m.coupleId && selectedList.some(p => p.memberId === m.coupleId);
+                                                        const isDragging = draggedItem?.teamIdx === idx && draggedItem?.memberIdx === mIdx;
+                                                        const isDragTarget = dragOverItem?.teamIdx === idx && dragOverItem?.memberIdx === mIdx;
+
                                                         return (
-                                                            <div key={mIdx} className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl hover:bg-white transition-all shadow-sm">
-                                                                <div className="flex items-center gap-3 text-left">
-                                                                    <span className={`w-6 h-6 flex items-center justify-center rounded-full text-[9px] font-black ${mIdx === 2 || mIdx === 5 ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-200 text-slate-500'}`}>{mIdx + 1}</span>
-                                                                    <div className="flex flex-col text-left">
-                                                                        <div className="flex items-center gap-1.5 text-left text-slate-900 leading-none">
-                                                                            {m.isGuest && <span className="text-[8px] font-black bg-blue-100 text-blue-600 px-1 rounded-sm">G</span>}
-                                                                            <span className="font-black text-slate-800 text-sm">{m.name}</span>
-                                                                            {m.gender === '여성' && <span className="text-[9px] font-black px-1.5 py-0.5 bg-pink-100 text-pink-600 rounded flex-shrink-0">W</span>}
+                                                            <div 
+                                                                key={mIdx}
+                                                                draggable
+                                                                onDragStart={(e) => handleDragStart(e, idx, mIdx)}
+                                                                onDragOver={(e) => {
+                                                                    e.preventDefault();
+                                                                    e.stopPropagation(); // Parent container handler should not trigger
+                                                                    handleDragOver(e, idx, mIdx);
+                                                                }}
+                                                                onDragEnd={handleDragEnd}
+                                                                onDrop={(e) => {
+                                                                    e.stopPropagation(); 
+                                                                    handleDrop(e, idx, mIdx);
+                                                                }}
+                                                                className={`relative transition-all duration-200 ${isDragging ? 'dragging' : ''} ${isDragTarget ? 'pt-12' : ''}`}
+                                                            >
+                                                                {/* Drop Indicator - Visual Feedback */}
+                                                                {isDragTarget && (
+                                                                    <div className="absolute top-0 left-0 right-0 h-10 border-2 border-dashed border-blue-400 bg-blue-50/50 rounded-xl flex items-center justify-center pointer-events-none transform -translate-y-1">
+                                                                        <span className="text-blue-500 font-bold text-xs">이 위치로 이동</span>
+                                                                    </div>
+                                                                )}
+
+                                                                {/* Member Card with Hover Effects */}
+                                                                <div className={`flex items-center justify-between p-1.5 md:p-3 bg-slate-50 rounded-lg md:rounded-2xl transition-all shadow-sm border border-slate-100/50 md:border-transparent cursor-move ${!isDragging ? 'hover:bg-blue-50 hover:border-blue-300 hover:shadow-md hover:scale-[1.02] hover:z-10 relative' : ''}`}>
+                                                                    <div className="flex items-center gap-1.5 md:gap-3 text-left overflow-hidden">
+                                                                        {/* 3번, 6번 자리 색상 강조 제거 -> 모든 순번 동일한 회색 스타일 적용 */}
+                                                                        <span className="w-4 h-4 md:w-6 md:h-6 flex items-center justify-center rounded-full text-[8px] md:text-[9px] font-black flex-shrink-0 bg-slate-200 text-slate-500">{mIdx + 1}</span>
+                                                                        <div className="flex flex-col text-left overflow-hidden">
+                                                                            <div className="flex items-center gap-1 text-left text-slate-900 leading-none">
+                                                                                <span className="font-black text-slate-800 text-[10px] md:text-sm truncate">{m.name}</span>
+                                                                                {m.gender === '여성' && <span className="text-[8px] md:text-[9px] font-black px-1 py-0.5 bg-pink-100 text-pink-600 rounded flex-shrink-0">W</span>}
+                                                                                {m.isGuest && <span className="text-[6px] md:text-[8px] font-black bg-blue-100 text-blue-600 px-0.5 md:px-1 rounded-sm flex-shrink-0">G</span>}
+                                                                            </div>
                                                                         </div>
                                                                     </div>
-                                                                </div>
-                                                                <div className="flex items-center gap-2">
-                                                                    <div className="flex flex-col items-end text-slate-900 text-right">
-                                                                        <span className={`text-[10px] font-black px-1.5 py-0.5 rounded level-tag inline-flex items-center justify-center min-w-[20px] ${getLevelColor(m.level)}`}>
-                                                                            {m.level}
-                                                                        </span>
-                                                                        {isPartnerPresent && <div className="text-pink-400 mt-0.5"><Icon.Heart /></div>}
+                                                                    <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
+                                                                        <div className="flex flex-col items-end text-slate-900 text-right">
+                                                                            <span className={`text-[8px] md:text-[10px] font-black px-1 md:px-1.5 py-0.5 rounded level-tag inline-flex items-center justify-center min-w-[16px] md:min-w-[20px] ${getLevelColor(m.level)}`}>
+                                                                                {m.level}
+                                                                            </span>
+                                                                            {isPartnerPresent && <div className="text-pink-400 mt-0.5 md:mt-0.5 text-[8px] md:text-[10px]"><Icon.Heart /></div>}
+                                                                        </div>
                                                                     </div>
                                                                 </div>
                                                             </div>
                                                         );
                                                     })}
+                                                    {/* End of list placeholder */}
+                                                    {dragOverItem?.teamIdx === idx && dragOverItem?.memberIdx === null && (
+                                                        <div className="h-10 border-2 border-dashed border-blue-400 bg-blue-50/50 rounded-xl mt-2 flex items-center justify-center pointer-events-none animate-pulse">
+                                                            <span className="text-blue-500 font-bold text-xs">맨 뒤로 이동</span>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         ))}
                                     </div>
                                     <div className="mt-10 p-6 bg-white rounded-[40px] border border-slate-200 shadow-lg space-y-6 max-w-4xl mx-auto text-left text-slate-900">
                                         <div className="flex flex-col sm:flex-row gap-3 justify-center text-left">
-                                            <button onClick={generateTeams} className="flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-slate-900 text-white rounded-2xl font-black text-sm hover:bg-slate-800 transition-all text-left"><Icon.Refresh /> 완전 새로 섞기</button>
+                                            <button onClick={generateTeams} className="flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-slate-900 text-white rounded-2xl font-black text-sm hover:bg-slate-800 transition-all text-left"><Icon.Refresh /> 다시 편성</button>
                                             <button onClick={() => setIsSaveModalOpen(true)} className="flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-blue-600 text-white rounded-2xl font-black text-sm shadow-xl hover:bg-blue-700 transition-all text-left"><Icon.Bookmark /> 현재 편성 임시저장</button>
                                         </div>
                                         <div className="border-t border-slate-100 pt-6 text-left">
