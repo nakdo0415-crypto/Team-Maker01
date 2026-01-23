@@ -130,6 +130,9 @@
         }
 
         /* 드래그 가능한 아이템에 대한 터치 액션 설정 (중요: 아이패드 스크롤 간섭 방지) */
+        .touch-action-pan-y {
+            touch-action: pan-y;
+        }
         .touch-action-none {
             touch-action: none;
         }
@@ -170,7 +173,7 @@
             Refresh: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>,
             Heart: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>,
             Bookmark: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>,
-            Trash: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>,
+            Trash: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>,
             Camera: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>,
             Download: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
             Shield: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
@@ -233,7 +236,7 @@
             const [dragOverItem, setDragOverItem] = useState(null);
             
             // Mobile Drag State
-            const [mobileGhost, setMobileGhost] = useState(null); 
+            const [mobileGhost, setMobileGhost] = useState(null); // { memberData, initialX, initialY }
             const ghostCardRef = useRef(null); 
             const longPressTimerRef = useRef(null);
             const isScrollingRef = useRef(false);
@@ -537,10 +540,11 @@
             };
 
             const handleTouchMove = (e) => {
-                if (!e.touches || e.touches.length === 0) return;
                 if (draggedItem) {
-                    // Touch Action is 'none' via CSS, but preventing default is safe here for non-passive listeners or if supported
+                    // Check cancelable before preventing default to avoid passive listener errors
                     if (e.cancelable) e.preventDefault(); 
+                    
+                    if (!e.touches || e.touches.length === 0) return;
                     const touch = e.touches[0];
                     if (ghostCardRef.current) {
                         ghostCardRef.current.style.left = `${touch.clientX}px`;
@@ -585,6 +589,13 @@
                     setMobileGhost(null);
                     setDragOverItem(null);
                 }
+            };
+
+            // Prevent Context Menu on long press for iOS
+            const handleContextMenu = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                return false;
             };
 
             const confirmSaveDraft = async () => {
@@ -935,6 +946,8 @@
                                                                     handleDrop(e, idx, mIdx);
                                                                 }}
                                                                 onTouchStart={(e) => handleTouchStart(e, idx, mIdx, m)}
+                                                                // Prevent Context Menu on Long Press
+                                                                onContextMenu={handleContextMenu}
                                                                 // Move/End handlers are on container for broader hit area, but can propagate
                                                                 className={`relative transition-all duration-200 touch-action-none ${isDragging ? 'dragging' : ''} ${isDragTarget ? 'pt-12' : ''}`}
                                                             >
