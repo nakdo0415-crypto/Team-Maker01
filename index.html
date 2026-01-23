@@ -54,7 +54,9 @@
             font-family: var(--main-font); 
             background-color: #f1f5f9;
             user-select: none;
+            -webkit-user-select: none; /* 아이패드 텍스트 선택 방지 */
             -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none; /* 아이패드 롱프레스 메뉴 방지 */
             overscroll-behavior-y: none;
         }
         
@@ -125,6 +127,11 @@
             border-color: #3b82f6 !important;
             background-color: #eff6ff !important;
             transform: scale(1.02);
+        }
+
+        /* 드래그 가능한 아이템에 대한 터치 액션 설정 (중요: 아이패드 스크롤 간섭 방지) */
+        .touch-action-none {
+            touch-action: none;
         }
     </style>
 </head>
@@ -218,7 +225,7 @@
             const [user, setUser] = useState(null);
             
             // Custom Font State
-            const [customFontName, setCustomFontName] = useState('GongGothic'); // Default
+            const [customFontName, setCustomFontName] = useState('GongGothic'); 
             const [isDraggingFile, setIsDraggingFile] = useState(false);
 
             // Drag & Drop State
@@ -226,7 +233,7 @@
             const [dragOverItem, setDragOverItem] = useState(null);
             
             // Mobile Drag State
-            const [mobileGhost, setMobileGhost] = useState(null); // { memberData, initialX, initialY }
+            const [mobileGhost, setMobileGhost] = useState(null); 
             const ghostCardRef = useRef(null); 
             const longPressTimerRef = useRef(null);
             const isScrollingRef = useRef(false);
@@ -515,6 +522,7 @@
             };
 
             const handleTouchStart = (e, teamIdx, memberIdx, memberData) => {
+                if (!e.touches || e.touches.length === 0) return;
                 const touch = e.touches[0];
                 const startX = touch.clientX;
                 const startY = touch.clientY;
@@ -529,8 +537,10 @@
             };
 
             const handleTouchMove = (e) => {
+                if (!e.touches || e.touches.length === 0) return;
                 if (draggedItem) {
-                    e.preventDefault(); 
+                    // Touch Action is 'none' via CSS, but preventing default is safe here for non-passive listeners or if supported
+                    if (e.cancelable) e.preventDefault(); 
                     const touch = e.touches[0];
                     if (ghostCardRef.current) {
                         ghostCardRef.current.style.left = `${touch.clientX}px`;
@@ -849,7 +859,7 @@
                     {activeTab === 'results' && (
                         <div className="animate-fade-in text-slate-900 text-left">
                             {/* Mobile Ghost Card (follows touch) */}
-                            {mobileGhost && (
+                            {mobileGhost && draggedItem && (
                                 <div 
                                     ref={ghostCardRef}
                                     className="ghost-card bg-white p-3 rounded-2xl border-2 border-blue-500 flex items-center justify-between"
@@ -926,7 +936,7 @@
                                                                 }}
                                                                 onTouchStart={(e) => handleTouchStart(e, idx, mIdx, m)}
                                                                 // Move/End handlers are on container for broader hit area, but can propagate
-                                                                className={`relative transition-all duration-200 ${isDragging ? 'dragging' : ''} ${isDragTarget ? 'pt-12' : ''}`}
+                                                                className={`relative transition-all duration-200 touch-action-none ${isDragging ? 'dragging' : ''} ${isDragTarget ? 'pt-12' : ''}`}
                                                             >
                                                                 {isDragTarget && (
                                                                     <div className="absolute top-0 left-0 right-0 h-10 border-2 border-dashed border-blue-400 bg-blue-50/50 rounded-xl flex items-center justify-center pointer-events-none transform -translate-y-1">
