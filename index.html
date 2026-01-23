@@ -24,14 +24,45 @@
     <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
     
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;700;900&display=swap');
+        /* 기본: 이사만루체(Gong Gothic) 웹폰트 적용 */
+        @font-face {
+            font-family: 'GongGothicMedium';
+            src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_20-10@1.0/GongGothicMedium.woff') format('woff');
+            font-weight: normal;
+            font-style: normal;
+        }
+        @font-face {
+            font-family: 'GongGothicBold';
+            src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_20-10@1.0/GongGothicBold.woff') format('woff');
+            font-weight: 700;
+            font-style: normal;
+        }
+        @font-face {
+            font-family: 'GongGothicLight';
+            src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_20-10@1.0/GongGothicLight.woff') format('woff');
+            font-weight: 300;
+            font-style: normal;
+        }
+
+        :root {
+            --main-font: 'GongGothicMedium', sans-serif;
+            --bold-font: 'GongGothicBold', sans-serif;
+            --light-font: 'GongGothicLight', sans-serif;
+        }
+
         body { 
-            font-family: 'Pretendard', sans-serif; 
+            font-family: var(--main-font); 
             background-color: #f1f5f9;
             user-select: none;
             -webkit-tap-highlight-color: transparent;
-            overscroll-behavior-y: none; /* 모바일에서 당겨서 새로고침 방지 (드래그 오동작 방지) */
+            overscroll-behavior-y: none;
         }
+        
+        /* CSS 변수를 사용하여 동적 변경 가능하도록 수정 */
+        .font-black { font-family: var(--bold-font); font-weight: 700; }
+        .font-bold { font-family: var(--main-font); font-weight: 500; }
+        .font-light { font-family: var(--light-font); font-weight: 300; }
+
         /* 팀 카드 호버 애니메이션 제거 */
         .team-card { transition: box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
         
@@ -58,7 +89,6 @@
             position: relative;
             filter: grayscale(100%);
         }
-        /* 드래그 중임을 알리는 배지 */
         .dragging::after {
             content: "이동 중...";
             position: absolute;
@@ -66,7 +96,7 @@
             left: 50%;
             transform: translate(-50%, -50%);
             font-size: 10px;
-            font-weight: 900;
+            font-family: var(--bold-font); /* 배지 폰트도 변수 사용 */
             color: #2563eb;
             background: rgba(255, 255, 255, 0.9);
             padding: 4px 8px;
@@ -77,16 +107,24 @@
             z-index: 20;
         }
 
-        /* 모바일 드래그 고스트 카드 (손가락 따라다니는 요소) */
+        /* 모바일 드래그 고스트 카드 */
         .ghost-card {
             position: fixed;
             pointer-events: none;
             z-index: 9999;
-            transform: translate(-50%, -50%); /* 기울임 제거 */
+            transform: translate(-50%, -50%);
             opacity: 0.9;
             box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
-            width: 280px; /* 대략적인 카드 너비 */
-            will-change: left, top; /* 성능 최적화 힌트 */
+            width: 280px;
+            will-change: left, top;
+            font-family: var(--main-font); /* 고스트 카드 폰트도 변수 사용 */
+        }
+        
+        /* Dropzone Active Style */
+        .dropzone-active {
+            border-color: #3b82f6 !important;
+            background-color: #eff6ff !important;
+            transform: scale(1.02);
         }
     </style>
 </head>
@@ -132,7 +170,9 @@
             Clock: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
             TrendingUp: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>,
             AlertCircle: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>,
-            Info: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            Info: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>,
+            Settings: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>,
+            Upload: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
         };
 
         const getLevelColor = (level) => {
@@ -176,6 +216,10 @@
             const [activeTab, setActiveTab] = useState('generator');
             const [isCapturing, setIsCapturing] = useState(false);
             const [user, setUser] = useState(null);
+            
+            // Custom Font State
+            const [customFontName, setCustomFontName] = useState('GongGothic'); // Default
+            const [isDraggingFile, setIsDraggingFile] = useState(false);
 
             // Drag & Drop State
             const [draggedItem, setDraggedItem] = useState(null);
@@ -183,7 +227,7 @@
             
             // Mobile Drag State
             const [mobileGhost, setMobileGhost] = useState(null); // { memberData, initialX, initialY }
-            const ghostCardRef = useRef(null); // Ghost Card Direct DOM Manipulation
+            const ghostCardRef = useRef(null); 
             const longPressTimerRef = useRef(null);
             const isScrollingRef = useRef(false);
 
@@ -232,7 +276,6 @@
                 return () => { unsubMembers(); unsubSession(); unsubSettings(); unsubDrafts(); };
             }, [user]);
 
-            // 모바일 드래그 중 스크롤 방지
             useEffect(() => {
                 if (draggedItem) {
                     document.body.style.overflow = 'hidden';
@@ -411,7 +454,6 @@
                 setActiveTab('results');
             };
 
-            // Common Move Logic (Used by both Mouse and Touch)
             const moveItem = (sourceTeamIdx, sourceMemberIdx, targetTeamIdx, targetMemberIdx) => {
                 if (sourceTeamIdx === targetTeamIdx && sourceMemberIdx === targetMemberIdx) return;
 
@@ -447,7 +489,6 @@
                 setTeams(newTeams);
             };
 
-            // Mouse Drag Handlers
             const handleDragStart = (e, teamIdx, memberIdx) => {
                 setDraggedItem({ teamIdx, memberIdx });
                 e.dataTransfer.effectAllowed = 'move';
@@ -473,22 +514,15 @@
                 setDraggedItem(null);
             };
 
-            // Mobile Touch Handlers
             const handleTouchStart = (e, teamIdx, memberIdx, memberData) => {
                 const touch = e.touches[0];
                 const startX = touch.clientX;
                 const startY = touch.clientY;
-                
                 isScrollingRef.current = false;
-
-                // Long Press Detection (0.5s)
                 longPressTimerRef.current = setTimeout(() => {
                     if (!isScrollingRef.current) {
-                        // 햅틱 피드백 (지원 기기만)
                         if (navigator.vibrate) navigator.vibrate(50);
-                        
                         setDraggedItem({ teamIdx, memberIdx });
-                        // 리렌더링 유발: 초기 좌표와 데이터만 설정
                         setMobileGhost({ memberData, initialX: startX, initialY: startY });
                     }
                 }, 500);
@@ -496,21 +530,16 @@
 
             const handleTouchMove = (e) => {
                 if (draggedItem) {
-                    e.preventDefault(); // Stop scrolling
+                    e.preventDefault(); 
                     const touch = e.touches[0];
-                    
-                    // Direct DOM Manipulation for performance (No React State Update)
                     if (ghostCardRef.current) {
                         ghostCardRef.current.style.left = `${touch.clientX}px`;
                         ghostCardRef.current.style.top = `${touch.clientY}px`;
                     }
-
-                    // Detect target under finger
                     const element = document.elementFromPoint(touch.clientX, touch.clientY);
                     if (element) {
                         const memberEl = element.closest('[data-member-idx]');
                         const teamEl = element.closest('[data-team-idx]');
-
                         if (memberEl) {
                             const tIdx = parseInt(memberEl.dataset.teamIdx);
                             const mIdx = parseInt(memberEl.dataset.memberIdx);
@@ -520,7 +549,7 @@
                         } else if (teamEl) {
                             const tIdx = parseInt(teamEl.dataset.teamIdx);
                             if (dragOverItem?.teamIdx !== tIdx || dragOverItem?.memberIdx !== null) {
-                                setDragOverItem({ teamIdx: tIdx, memberIdx: null }); // End of list
+                                setDragOverItem({ teamIdx: tIdx, memberIdx: null }); 
                             }
                         }
                     }
@@ -538,13 +567,12 @@
                     clearTimeout(longPressTimerRef.current);
                     longPressTimerRef.current = null;
                 }
-
                 if (draggedItem) {
                     if (dragOverItem) {
                         moveItem(draggedItem.teamIdx, draggedItem.memberIdx, dragOverItem.teamIdx, dragOverItem.memberIdx);
                     }
                     setDraggedItem(null);
-                    setMobileGhost(null); // Clean up ghost
+                    setMobileGhost(null);
                     setDragOverItem(null);
                 }
             };
@@ -629,10 +657,42 @@
                 document.body.removeChild(container); setIsCapturing(false);
             };
 
+            // Font File Drop Handler
+            const handleFontFileDrop = (e) => {
+                e.preventDefault();
+                setIsDraggingFile(false);
+                const file = e.dataTransfer.files[0];
+                if (file && (file.name.endsWith('.ttf') || file.name.endsWith('.otf') || file.name.endsWith('.woff') || file.name.endsWith('.woff2'))) {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        const fontData = event.target.result;
+                        const fontName = 'CustomUploadedFont';
+                        const fontFace = new FontFace(fontName, `url(${fontData})`);
+                        
+                        fontFace.load().then((loadedFace) => {
+                            document.fonts.add(loadedFace);
+                            // CSS Variables Update to apply new font globally
+                            document.documentElement.style.setProperty('--main-font', `'${fontName}', sans-serif`);
+                            document.documentElement.style.setProperty('--bold-font', `'${fontName}', sans-serif`);
+                            document.documentElement.style.setProperty('--light-font', `'${fontName}', sans-serif`);
+                            setCustomFontName(file.name);
+                            alert(`폰트가 "${file.name}"(으)로 변경되었습니다!`);
+                        }).catch(err => {
+                            console.error('Font loading failed:', err);
+                            alert('폰트 로드 실패: 유효한 폰트 파일인지 확인해주세요.');
+                        });
+                    };
+                    reader.readAsDataURL(file);
+                } else {
+                    alert('ttf, otf, woff 파일만 지원합니다.');
+                }
+            };
+
             return (
                 <div className="max-w-7xl mx-auto p-4 sm:p-6 pb-24 text-left">
                     <header className="mb-8 text-center text-slate-900">
-                        <h1 className="text-4xl font-black italic tracking-tighter uppercase mb-3">Team Maker</h1>
+                        {/* italic 클래스 제거 */}
+                        <h1 className="text-4xl font-black tracking-tighter uppercase mb-3">Team Maker</h1>
                         <div className="flex flex-col items-center gap-3">
                             <div className="inline-flex flex-col items-center bg-white px-6 py-3 rounded-[24px] border border-slate-200 shadow-sm transition-all hover:shadow-md">
                                 <div className="flex items-center gap-2 mb-1">
@@ -655,9 +715,9 @@
                     </header>
 
                     <nav className="flex gap-2 mb-8 bg-slate-200/50 p-1.5 rounded-2xl max-w-2xl mx-auto">
-                        {['generator', 'results', 'drafts'].map(t => (
+                        {['generator', 'results', 'drafts', 'settings'].map(t => (
                             <button key={t} onClick={() => setActiveTab(t)} className={`flex-1 py-3 rounded-xl font-black text-xs sm:text-sm transition-all ${activeTab === t ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500'}`}>
-                                {t === 'generator' ? '설정 및 생성' : t === 'results' ? '현재 편성' : '저장소'}
+                                {t === 'generator' ? '설정 및 생성' : t === 'results' ? '현재 편성' : t === 'drafts' ? '저장소' : '설정'}
                             </button>
                         ))}
                     </nav>
@@ -953,6 +1013,40 @@
                                     </div>
                                 </div>
                             ))}
+                        </div>
+                    )}
+
+                    {activeTab === 'settings' && (
+                        <div className="animate-fade-in text-left max-w-xl mx-auto text-slate-900">
+                            <div className="bg-white p-8 rounded-[40px] border border-slate-200 shadow-lg text-slate-900 text-left">
+                                <h3 className="text-xl font-black mb-6 text-slate-800 flex items-center gap-2">
+                                    <Icon.Settings /> 폰트 설정
+                                </h3>
+                                
+                                <div className="mb-8">
+                                    <p className="text-sm font-bold text-slate-500 mb-2">현재 적용된 폰트</p>
+                                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200">
+                                        <p className="font-black text-lg text-blue-600">{customFontName}</p>
+                                    </div>
+                                </div>
+
+                                <div 
+                                    className={`relative p-8 rounded-3xl border-2 border-dashed transition-all cursor-pointer ${isDraggingFile ? 'dropzone-active' : 'border-slate-300 bg-slate-50 hover:bg-slate-100'}`}
+                                    onDragOver={(e) => { e.preventDefault(); setIsDraggingFile(true); }}
+                                    onDragLeave={(e) => { e.preventDefault(); setIsDraggingFile(false); }}
+                                    onDrop={handleFontFileDrop}
+                                >
+                                    <div className="flex flex-col items-center justify-center text-center gap-3 py-4 pointer-events-none">
+                                        <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-2">
+                                            <Icon.Upload />
+                                        </div>
+                                        <p className="font-black text-slate-700">폰트 파일(.ttf)을 여기로 드래그하세요</p>
+                                        <p className="text-xs font-medium text-slate-400 max-w-[200px] leading-relaxed">
+                                            ttf, otf, woff 파일을 지원하며<br/>드롭 즉시 전체 폰트가 변경됩니다.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     )}
 
