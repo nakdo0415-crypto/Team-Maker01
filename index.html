@@ -82,11 +82,11 @@
             position: fixed;
             pointer-events: none;
             z-index: 9999;
-            /* 기울임(rotate) 제거하여 똑바로 보이게 수정 */
-            transform: translate(-50%, -50%);
+            transform: translate(-50%, -50%); /* 기울임 제거 */
             opacity: 0.9;
             box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
             width: 280px; /* 대략적인 카드 너비 */
+            will-change: left, top; /* 성능 최적화 힌트 */
         }
     </style>
 </head>
@@ -182,7 +182,8 @@
             const [dragOverItem, setDragOverItem] = useState(null);
             
             // Mobile Drag State
-            const [mobileGhost, setMobileGhost] = useState(null); // { x, y, memberData }
+            const [mobileGhost, setMobileGhost] = useState(null); // { memberData, initialX, initialY }
+            const ghostCardRef = useRef(null); // Ghost Card Direct DOM Manipulation
             const longPressTimerRef = useRef(null);
             const isScrollingRef = useRef(false);
 
@@ -386,7 +387,6 @@
                                 }
                                 return (a.score - b.score) || (a.tCount - b.tCount);
                             });
-                            // 오타 수정: [0.idx] -> [0].idx
                             targetIdx = sortedCandidates[0].idx;
                         } else {
                             targetIdx = resultTeams.findIndex(t => t.members.length < t.targetSize);
@@ -475,8 +475,6 @@
 
             // Mobile Touch Handlers
             const handleTouchStart = (e, teamIdx, memberIdx, memberData) => {
-                // e.persist(); // React 17+ automatically pools, but persist is safe. 
-                // However, accessing properties asynchronously requires valid refs or values.
                 const touch = e.touches[0];
                 const startX = touch.clientX;
                 const startY = touch.clientY;
@@ -490,17 +488,22 @@
                         if (navigator.vibrate) navigator.vibrate(50);
                         
                         setDraggedItem({ teamIdx, memberIdx });
-                        setMobileGhost({ x: startX, y: startY, memberData });
+                        // 리렌더링 유발: 초기 좌표와 데이터만 설정
+                        setMobileGhost({ memberData, initialX: startX, initialY: startY });
                     }
                 }, 500);
             };
 
             const handleTouchMove = (e) => {
-                // If draggedItem exists, we are in drag mode
                 if (draggedItem) {
                     e.preventDefault(); // Stop scrolling
                     const touch = e.touches[0];
-                    setMobileGhost(prev => ({ ...prev, x: touch.clientX, y: touch.clientY }));
+                    
+                    // Direct DOM Manipulation for performance (No React State Update)
+                    if (ghostCardRef.current) {
+                        ghostCardRef.current.style.left = `${touch.clientX}px`;
+                        ghostCardRef.current.style.top = `${touch.clientY}px`;
+                    }
 
                     // Detect target under finger
                     const element = document.elementFromPoint(touch.clientX, touch.clientY);
@@ -522,7 +525,6 @@
                         }
                     }
                 } else {
-                    // Not dragging yet, detect scroll movement
                     isScrollingRef.current = true;
                     if (longPressTimerRef.current) {
                         clearTimeout(longPressTimerRef.current);
@@ -542,7 +544,7 @@
                         moveItem(draggedItem.teamIdx, draggedItem.memberIdx, dragOverItem.teamIdx, dragOverItem.memberIdx);
                     }
                     setDraggedItem(null);
-                    setMobileGhost(null);
+                    setMobileGhost(null); // Clean up ghost
                     setDragOverItem(null);
                 }
             };
@@ -789,8 +791,9 @@
                             {/* Mobile Ghost Card (follows touch) */}
                             {mobileGhost && (
                                 <div 
+                                    ref={ghostCardRef}
                                     className="ghost-card bg-white p-3 rounded-2xl border-2 border-blue-500 flex items-center justify-between"
-                                    style={{ left: mobileGhost.x, top: mobileGhost.y }}
+                                    style={{ left: mobileGhost.initialX, top: mobileGhost.initialY }}
                                 >
                                     <div className="flex items-center gap-3">
                                         <div className="w-8 h-8 flex items-center justify-center rounded-full bg-blue-100 text-blue-600 font-black text-xs">
