@@ -82,7 +82,8 @@
             position: fixed;
             pointer-events: none;
             z-index: 9999;
-            transform: translate(-50%, -50%) rotate(3deg);
+            /* 기울임(rotate) 제거하여 똑바로 보이게 수정 */
+            transform: translate(-50%, -50%);
             opacity: 0.9;
             box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
             width: 280px; /* 대략적인 카드 너비 */
@@ -385,10 +386,12 @@
                                 }
                                 return (a.score - b.score) || (a.tCount - b.tCount);
                             });
+                            // 오타 수정: [0.idx] -> [0].idx
                             targetIdx = sortedCandidates[0].idx;
                         } else {
                             targetIdx = resultTeams.findIndex(t => t.members.length < t.targetSize);
                         }
+
                         resultTeams[targetIdx].members.push(...unit.members);
                         resultTeams[targetIdx].scoreSum += unit.totalPoints;
                         if (unit.isTopMale) resultTeams[targetIdx].hasTopMale = true;
