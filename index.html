@@ -30,6 +30,7 @@
             background-color: #f1f5f9;
             user-select: none;
             -webkit-tap-highlight-color: transparent;
+            overscroll-behavior-y: none; /* 모바일에서 당겨서 새로고침 방지 (드래그 오동작 방지) */
         }
         /* 팀 카드 호버 애니메이션 제거 */
         .team-card { transition: box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
@@ -74,6 +75,17 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             white-space: nowrap;
             z-index: 20;
+        }
+
+        /* 모바일 드래그 고스트 카드 (손가락 따라다니는 요소) */
+        .ghost-card {
+            position: fixed;
+            pointer-events: none;
+            z-index: 9999;
+            transform: translate(-50%, -50%) rotate(3deg);
+            opacity: 0.9;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+            width: 280px; /* 대략적인 카드 너비 */
         }
     </style>
 </head>
@@ -167,6 +179,11 @@
             // Drag & Drop State
             const [draggedItem, setDraggedItem] = useState(null);
             const [dragOverItem, setDragOverItem] = useState(null);
+            
+            // Mobile Drag State
+            const [mobileGhost, setMobileGhost] = useState(null); // { x, y, memberData }
+            const longPressTimerRef = useRef(null);
+            const isScrollingRef = useRef(false);
 
             const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
             const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -213,6 +230,16 @@
                 return () => { unsubMembers(); unsubSession(); unsubSettings(); unsubDrafts(); };
             }, [user]);
 
+            // 모바일 드래그 중 스크롤 방지
+            useEffect(() => {
+                if (draggedItem) {
+                    document.body.style.overflow = 'hidden';
+                } else {
+                    document.body.style.overflow = '';
+                }
+                return () => { document.body.style.overflow = ''; };
+            }, [draggedItem]);
+
             const selectedList = useMemo(() => {
                 if (!meetingDate) return [];
                 return sessionData.filter(s => s.date === meetingDate && s.status !== '노쇼');
@@ -231,7 +258,6 @@
                 return stats;
             }, [selectedList, members]);
 
-            // 여성을 3번(index 2)이나 6번(index 5)에 자동 배치하는 함수
             const reorderMembersWithGenderRule = (memberList) => {
                 const size = memberList.length;
                 if (size === 0) return [];
@@ -241,20 +267,15 @@
                 
                 const result = new Array(size).fill(null);
 
-                // 여성 배치 로직
-                // 1. 3번 자리 (index 2)
                 if (females.length > 0 && size > 2) {
                     result[2] = females.shift();
                 }
-                // 2. 6번 자리 (index 5) - 팀 크기가 6명 이상일 때만
                 if (females.length > 0 && size > 5) {
                     result[5] = females.shift();
                 }
                 
-                // 나머지 자리 채우기
                 for (let i = 0; i < size; i++) {
                     if (result[i] === null) {
-                        // 남성을 먼저 배치하고, 남은 여성이 있다면 그 다음 배치
                         if (others.length > 0) {
                             result[i] = others.shift();
                         } else if (females.length > 0) {
@@ -387,36 +408,9 @@
                 setActiveTab('results');
             };
 
-            // Drag & Drop Handlers
-            const handleDragStart = (e, teamIdx, memberIdx) => {
-                setDraggedItem({ teamIdx, memberIdx });
-                e.dataTransfer.effectAllowed = 'move';
-            };
-
-            const handleDragOver = (e, teamIdx, memberIdx) => {
-                e.preventDefault(); 
-                if (dragOverItem?.teamIdx !== teamIdx || dragOverItem?.memberIdx !== memberIdx) {
-                    setDragOverItem({ teamIdx, memberIdx });
-                }
-            };
-
-            const handleDragEnd = () => {
-                setDraggedItem(null);
-                setDragOverItem(null);
-            };
-
-            const handleDrop = (e, targetTeamIdx, targetMemberIdx) => {
-                e.preventDefault();
-                setDragOverItem(null); 
-
-                if (!draggedItem) return;
-
-                const { teamIdx: sourceTeamIdx, memberIdx: sourceMemberIdx } = draggedItem;
-
-                if (sourceTeamIdx === targetTeamIdx && sourceMemberIdx === targetMemberIdx) {
-                    setDraggedItem(null);
-                    return;
-                }
+            // Common Move Logic (Used by both Mouse and Touch)
+            const moveItem = (sourceTeamIdx, sourceMemberIdx, targetTeamIdx, targetMemberIdx) => {
+                if (sourceTeamIdx === targetTeamIdx && sourceMemberIdx === targetMemberIdx) return;
 
                 const newTeams = [...teams];
                 const sourceTeam = newTeams[sourceTeamIdx];
@@ -425,11 +419,9 @@
                 const [movedMember] = sourceTeam.members.splice(sourceMemberIdx, 1);
                 
                 if (sourceTeamIdx === targetTeamIdx) {
-                    // targetMemberIdx가 null인 경우(맨 뒤로 이동) 보정 필요
                     const actualTargetIdx = (targetMemberIdx === null || targetMemberIdx === undefined) 
                         ? targetTeam.members.length 
                         : targetMemberIdx;
-                    
                     targetTeam.members.splice(actualTargetIdx, 0, movedMember);
                 } else {
                     if (targetMemberIdx === undefined || targetMemberIdx === null) {
@@ -450,7 +442,106 @@
                 }
 
                 setTeams(newTeams);
+            };
+
+            // Mouse Drag Handlers
+            const handleDragStart = (e, teamIdx, memberIdx) => {
+                setDraggedItem({ teamIdx, memberIdx });
+                e.dataTransfer.effectAllowed = 'move';
+            };
+
+            const handleDragOver = (e, teamIdx, memberIdx) => {
+                e.preventDefault(); 
+                if (dragOverItem?.teamIdx !== teamIdx || dragOverItem?.memberIdx !== memberIdx) {
+                    setDragOverItem({ teamIdx, memberIdx });
+                }
+            };
+
+            const handleDragEnd = () => {
                 setDraggedItem(null);
+                setDragOverItem(null);
+            };
+
+            const handleDrop = (e, targetTeamIdx, targetMemberIdx) => {
+                e.preventDefault();
+                setDragOverItem(null); 
+                if (!draggedItem) return;
+                moveItem(draggedItem.teamIdx, draggedItem.memberIdx, targetTeamIdx, targetMemberIdx);
+                setDraggedItem(null);
+            };
+
+            // Mobile Touch Handlers
+            const handleTouchStart = (e, teamIdx, memberIdx, memberData) => {
+                // e.persist(); // React 17+ automatically pools, but persist is safe. 
+                // However, accessing properties asynchronously requires valid refs or values.
+                const touch = e.touches[0];
+                const startX = touch.clientX;
+                const startY = touch.clientY;
+                
+                isScrollingRef.current = false;
+
+                // Long Press Detection (0.5s)
+                longPressTimerRef.current = setTimeout(() => {
+                    if (!isScrollingRef.current) {
+                        // 햅틱 피드백 (지원 기기만)
+                        if (navigator.vibrate) navigator.vibrate(50);
+                        
+                        setDraggedItem({ teamIdx, memberIdx });
+                        setMobileGhost({ x: startX, y: startY, memberData });
+                    }
+                }, 500);
+            };
+
+            const handleTouchMove = (e) => {
+                // If draggedItem exists, we are in drag mode
+                if (draggedItem) {
+                    e.preventDefault(); // Stop scrolling
+                    const touch = e.touches[0];
+                    setMobileGhost(prev => ({ ...prev, x: touch.clientX, y: touch.clientY }));
+
+                    // Detect target under finger
+                    const element = document.elementFromPoint(touch.clientX, touch.clientY);
+                    if (element) {
+                        const memberEl = element.closest('[data-member-idx]');
+                        const teamEl = element.closest('[data-team-idx]');
+
+                        if (memberEl) {
+                            const tIdx = parseInt(memberEl.dataset.teamIdx);
+                            const mIdx = parseInt(memberEl.dataset.memberIdx);
+                            if (dragOverItem?.teamIdx !== tIdx || dragOverItem?.memberIdx !== mIdx) {
+                                setDragOverItem({ teamIdx: tIdx, memberIdx: mIdx });
+                            }
+                        } else if (teamEl) {
+                            const tIdx = parseInt(teamEl.dataset.teamIdx);
+                            if (dragOverItem?.teamIdx !== tIdx || dragOverItem?.memberIdx !== null) {
+                                setDragOverItem({ teamIdx: tIdx, memberIdx: null }); // End of list
+                            }
+                        }
+                    }
+                } else {
+                    // Not dragging yet, detect scroll movement
+                    isScrollingRef.current = true;
+                    if (longPressTimerRef.current) {
+                        clearTimeout(longPressTimerRef.current);
+                        longPressTimerRef.current = null;
+                    }
+                }
+            };
+
+            const handleTouchEnd = (e) => {
+                if (longPressTimerRef.current) {
+                    clearTimeout(longPressTimerRef.current);
+                    longPressTimerRef.current = null;
+                }
+
+                if (draggedItem) {
+                    if (dragOverItem) {
+                        moveItem(draggedItem.teamIdx, draggedItem.memberIdx, dragOverItem.teamIdx, dragOverItem.memberIdx);
+                    }
+                    setDraggedItem(null);
+                    setMobileGhost(null);
+                    setDragOverItem(null);
+                }
             };
 
             const confirmSaveDraft = async () => {
@@ -584,10 +675,8 @@
                                     </div>
                                 </div>
                                 
-                                {/* Entry Pool Split Layout */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8 max-h-[500px] overflow-y-auto custom-scrollbar pr-2">
                                     {(() => {
-                                        // 성별로 분류 및 정렬 함수
                                         const sortMembers = (list) => {
                                             return [...list].sort((a, b) => {
                                                 const memberA = members.find(m => m.id === a.memberId) || {};
@@ -629,7 +718,6 @@
 
                                         return (
                                             <>
-                                                {/* Male Section */}
                                                 <div className="flex flex-col gap-2">
                                                     <div className="sticky top-0 bg-white/95 backdrop-blur z-10 py-2 border-b border-slate-100 flex justify-between items-center mb-2">
                                                         <span className="text-xs font-black text-blue-600 flex items-center gap-1.5 uppercase tracking-wider">
@@ -644,7 +732,6 @@
                                                     </div>
                                                 </div>
 
-                                                {/* Female Section */}
                                                 <div className="flex flex-col gap-2 md:border-l md:border-slate-50 md:pl-4">
                                                     <div className="sticky top-0 bg-white/95 backdrop-blur z-10 py-2 border-b border-slate-100 flex justify-between items-center mb-2">
                                                         <span className="text-xs font-black text-pink-500 flex items-center gap-1.5 uppercase tracking-wider">
@@ -696,17 +783,40 @@
 
                     {activeTab === 'results' && (
                         <div className="animate-fade-in text-slate-900 text-left">
+                            {/* Mobile Ghost Card (follows touch) */}
+                            {mobileGhost && (
+                                <div 
+                                    className="ghost-card bg-white p-3 rounded-2xl border-2 border-blue-500 flex items-center justify-between"
+                                    style={{ left: mobileGhost.x, top: mobileGhost.y }}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 flex items-center justify-center rounded-full bg-blue-100 text-blue-600 font-black text-xs">
+                                            {draggedItem.memberIdx + 1}
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <div className="flex items-center gap-1">
+                                                <span className="font-black text-slate-900 text-sm">{mobileGhost.memberData.name}</span>
+                                                {mobileGhost.memberData.gender === '여성' && <span className="text-[9px] font-black px-1 py-0.5 bg-pink-100 text-pink-600 rounded">W</span>}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className={`text-[10px] font-black px-2 py-1 rounded level-tag ${getLevelColor(mobileGhost.memberData.level)}`}>
+                                        {mobileGhost.memberData.level}
+                                    </div>
+                                </div>
+                            )}
+
                             {teams.length === 0 ? (
                                 <div className="py-20 text-center text-slate-300 font-black">결과가 없습니다.</div>
                             ) : (
                                 <>
-                                    {/* 모바일에서도 항상 3팀이 1줄에 보이도록 grid-cols-3 고정 */}
                                     <div className="grid grid-cols-3 gap-1.5 md:gap-4 text-left">
                                         {teams.map((team, idx) => (
                                             <div 
                                                 key={idx} 
                                                 ref={el => teamRefs.current[idx] = el} 
                                                 className="team-card bg-white rounded-2xl md:rounded-[32px] shadow-lg md:shadow-xl overflow-hidden border border-slate-100 text-left h-full flex flex-col"
+                                                data-team-idx={idx}
                                                 onDragOver={(e) => {
                                                     e.preventDefault();
                                                     handleDragOver(e, idx, null); // Container hover implies dragging to end/empty space
@@ -715,6 +825,8 @@
                                                     e.preventDefault();
                                                     handleDrop(e, idx, null);
                                                 }}
+                                                onTouchMove={handleTouchMove}
+                                                onTouchEnd={handleTouchEnd}
                                             >
                                                 <div className={`p-2 md:p-4 text-center font-black text-white flex flex-col md:flex-row justify-between items-center px-2 md:px-6 ${idx === 0 ? 'bg-rose-500' : idx === 1 ? 'bg-blue-500' : idx === 2 ? 'bg-emerald-600' : idx === 3 ? 'bg-orange-500' : 'bg-violet-600'}`}>
                                                     <div className="flex flex-col md:flex-row items-center gap-0.5 md:gap-2">
@@ -732,11 +844,13 @@
                                                         return (
                                                             <div 
                                                                 key={mIdx}
+                                                                data-team-idx={idx}
+                                                                data-member-idx={mIdx}
                                                                 draggable
                                                                 onDragStart={(e) => handleDragStart(e, idx, mIdx)}
                                                                 onDragOver={(e) => {
                                                                     e.preventDefault();
-                                                                    e.stopPropagation(); // Parent container handler should not trigger
+                                                                    e.stopPropagation(); 
                                                                     handleDragOver(e, idx, mIdx);
                                                                 }}
                                                                 onDragEnd={handleDragEnd}
@@ -744,19 +858,18 @@
                                                                     e.stopPropagation(); 
                                                                     handleDrop(e, idx, mIdx);
                                                                 }}
+                                                                onTouchStart={(e) => handleTouchStart(e, idx, mIdx, m)}
+                                                                // Move/End handlers are on container for broader hit area, but can propagate
                                                                 className={`relative transition-all duration-200 ${isDragging ? 'dragging' : ''} ${isDragTarget ? 'pt-12' : ''}`}
                                                             >
-                                                                {/* Drop Indicator - Visual Feedback */}
                                                                 {isDragTarget && (
                                                                     <div className="absolute top-0 left-0 right-0 h-10 border-2 border-dashed border-blue-400 bg-blue-50/50 rounded-xl flex items-center justify-center pointer-events-none transform -translate-y-1">
                                                                         <span className="text-blue-500 font-bold text-xs">이 위치로 이동</span>
                                                                     </div>
                                                                 )}
 
-                                                                {/* Member Card with Hover Effects */}
-                                                                <div className={`flex items-center justify-between p-1.5 md:p-3 bg-slate-50 rounded-lg md:rounded-2xl transition-all shadow-sm border border-slate-100/50 md:border-transparent cursor-move ${!isDragging ? 'hover:bg-blue-50 hover:border-blue-300 hover:shadow-md hover:scale-[1.02] hover:z-10 relative' : ''}`}>
+                                                                <div className={`flex items-center justify-between p-1.5 md:p-3 bg-slate-50 rounded-lg md:rounded-2xl transition-all shadow-sm border border-slate-100/50 md:border-transparent cursor-move select-none ${!isDragging ? 'hover:bg-blue-50 hover:border-blue-300 hover:shadow-md hover:scale-[1.02] hover:z-10 relative' : ''}`}>
                                                                     <div className="flex items-center gap-1.5 md:gap-3 text-left overflow-hidden">
-                                                                        {/* 3번, 6번 자리 색상 강조 제거 -> 모든 순번 동일한 회색 스타일 적용 */}
                                                                         <span className="w-4 h-4 md:w-6 md:h-6 flex items-center justify-center rounded-full text-[8px] md:text-[9px] font-black flex-shrink-0 bg-slate-200 text-slate-500">{mIdx + 1}</span>
                                                                         <div className="flex flex-col text-left overflow-hidden">
                                                                             <div className="flex items-center gap-1 text-left text-slate-900 leading-none">
@@ -778,7 +891,7 @@
                                                             </div>
                                                         );
                                                     })}
-                                                    {/* End of list placeholder */}
+                                                    
                                                     {dragOverItem?.teamIdx === idx && dragOverItem?.memberIdx === null && (
                                                         <div className="h-10 border-2 border-dashed border-blue-400 bg-blue-50/50 rounded-xl mt-2 flex items-center justify-center pointer-events-none animate-pulse">
                                                             <span className="text-blue-500 font-bold text-xs">맨 뒤로 이동</span>
@@ -837,7 +950,6 @@
                         </div>
                     )}
 
-                    {/* 저장 확인 모달 */}
                     {isSaveModalOpen && (
                         <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 modal-backdrop">
                             <div className="bg-white w-full max-w-sm rounded-[32px] shadow-2xl overflow-hidden animate-fade-in p-8 text-center">
@@ -858,7 +970,6 @@
                         </div>
                     )}
 
-                    {/* 삭제 확인 모달 */}
                     {isDeleteModalOpen && (
                         <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 modal-backdrop text-slate-900">
                             <div className="bg-white w-full max-w-sm rounded-[32px] shadow-2xl overflow-hidden animate-fade-in p-8 text-center">
