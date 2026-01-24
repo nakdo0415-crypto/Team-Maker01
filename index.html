@@ -98,7 +98,7 @@
             left: 50%;
             transform: translate(-50%, -50%);
             font-size: 10px;
-            font-family: var(--bold-font); /* 배지 폰트도 변수 사용 */
+            font-family: var(--bold-font); 
             color: #2563eb;
             background: rgba(255, 255, 255, 0.9);
             padding: 4px 8px;
@@ -114,12 +114,12 @@
             position: fixed;
             pointer-events: none;
             z-index: 9999;
-            transform: translate(-50%, -50%);
-            opacity: 0.9;
+            transform: translate(-50%, -50%); /* 기울임 제거 */
+            opacity: 0.95;
             box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
             width: 280px;
             will-change: left, top;
-            font-family: var(--main-font); /* 고스트 카드 폰트도 변수 사용 */
+            font-family: var(--main-font); 
         }
         
         /* Dropzone Active Style */
@@ -129,13 +129,8 @@
             transform: scale(1.02);
         }
 
-        /* 드래그 가능한 아이템에 대한 터치 액션 설정 (중요: 아이패드 스크롤 간섭 방지) */
-        .touch-action-pan-y {
-            touch-action: pan-y;
-        }
-        .touch-action-none {
-            touch-action: none;
-        }
+        /* 아이패드 스크롤 간섭 방지용 (필요시 사용) */
+        .touch-action-pan-y { touch-action: pan-y; }
     </style>
 </head>
 <body>
@@ -929,6 +924,7 @@
                                             <div className="flex items-center gap-1">
                                                 <span className="font-black text-slate-900 text-sm">{mobileGhost.memberData.name}</span>
                                                 {mobileGhost.memberData.gender === '여성' && <span className="text-[9px] font-black px-1 py-0.5 bg-pink-100 text-pink-600 rounded">W</span>}
+                                                {mobileGhost.memberData.isGuest && <span className="text-[6px] font-black bg-blue-100 text-blue-600 px-0.5 rounded-sm">G</span>}
                                             </div>
                                         </div>
                                     </div>
@@ -1004,11 +1000,13 @@
 
                                                                 <div className={`flex items-center justify-between p-1.5 md:p-3 bg-slate-50 rounded-lg md:rounded-2xl transition-all shadow-sm border border-slate-100/50 md:border-transparent cursor-move select-none ${!isDragging ? 'hover:bg-blue-50 hover:border-blue-300 hover:shadow-md hover:scale-[1.02] hover:z-10 relative' : ''}`}>
                                                                     <div className="flex items-center gap-1.5 md:gap-3 text-left overflow-hidden">
+                                                                        {/* 3번, 6번 자리 색상 강조 제거 -> 모든 순번 동일한 회색 스타일 적용 */}
                                                                         <span className="w-4 h-4 md:w-6 md:h-6 flex items-center justify-center rounded-full text-[8px] md:text-[9px] font-black flex-shrink-0 bg-slate-200 text-slate-500">{mIdx + 1}</span>
                                                                         <div className="flex flex-col text-left overflow-hidden">
                                                                             <div className="flex items-center gap-1 text-left text-slate-900 leading-none">
                                                                                 <span className="font-black text-slate-800 text-[10px] md:text-sm truncate">{m.name}</span>
                                                                                 {m.gender === '여성' && <span className="text-[8px] md:text-[9px] font-black px-1 py-0.5 bg-pink-100 text-pink-600 rounded flex-shrink-0">W</span>}
+                                                                                {isPartnerPresent && <span className="text-pink-400 text-[8px] md:text-[10px] flex-shrink-0"><Icon.Heart /></span>}
                                                                                 {m.isGuest && <span className="text-[6px] md:text-[8px] font-black bg-blue-100 text-blue-600 px-0.5 md:px-1 rounded-sm flex-shrink-0">G</span>}
                                                                             </div>
                                                                         </div>
@@ -1018,14 +1016,13 @@
                                                                             <span className={`text-[8px] md:text-[10px] font-black px-1 md:px-1.5 py-0.5 rounded level-tag inline-flex items-center justify-center min-w-[16px] md:min-w-[20px] ${getLevelColor(m.level)}`}>
                                                                                 {m.level}
                                                                             </span>
-                                                                            {isPartnerPresent && <div className="text-pink-400 mt-0.5 md:mt-0.5 text-[8px] md:text-[10px]"><Icon.Heart /></div>}
                                                                         </div>
                                                                     </div>
                                                                 </div>
                                                             </div>
                                                         );
                                                     })}
-                                                    
+                                                    {/* End of list placeholder */}
                                                     {dragOverItem?.teamIdx === idx && dragOverItem?.memberIdx === null && (
                                                         <div className="h-10 border-2 border-dashed border-blue-400 bg-blue-50/50 rounded-xl mt-2 flex items-center justify-center pointer-events-none animate-pulse">
                                                             <span className="text-blue-500 font-bold text-xs">맨 뒤로 이동</span>
