@@ -232,6 +232,7 @@
             const ghostCardRef = useRef(null); 
             const longPressTimerRef = useRef(null);
             const isScrollingRef = useRef(false);
+            const touchStartPos = useRef({ x: 0, y: 0 }); // 터치 시작 위치 저장용 (보정 로직)
 
             const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
             const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -618,13 +619,23 @@
                 setDraggedItem(null);
             };
 
+            // Mobile Touch Handlers - Improved for iPad/Mobile Stability
             const handleTouchStart = (e, teamIdx, memberIdx, memberData) => {
                 if (!e.touches || e.touches.length === 0) return;
                 const touch = e.touches[0];
                 const startX = touch.clientX;
                 const startY = touch.clientY;
+                
+                // 터치 시작 위치 저장
+                touchStartPos.current = { x: startX, y: startY };
                 isScrollingRef.current = false;
+
+                // 기존 타이머 클리어
+                if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+
+                // Long Press Detection (0.5s)
                 longPressTimerRef.current = setTimeout(() => {
+                    // 스크롤 중이 아니라면 드래그 모드 진입
                     if (!isScrollingRef.current) {
                         if (navigator.vibrate) navigator.vibrate(50);
                         setDraggedItem({ teamIdx, memberIdx });
@@ -634,18 +645,25 @@
             };
 
             const handleTouchMove = (e) => {
+                if (!e.touches || e.touches.length === 0) return;
+                const touch = e.touches[0];
+
                 if (draggedItem) {
+                    // 이미 드래그 중인 경우: 스크롤 막고 고스트 이동
                     if (e.cancelable) e.preventDefault(); 
-                    if (!e.touches || e.touches.length === 0) return;
-                    const touch = e.touches[0];
+                    
                     if (ghostCardRef.current) {
                         ghostCardRef.current.style.left = `${touch.clientX}px`;
                         ghostCardRef.current.style.top = `${touch.clientY}px`;
                     }
+                    
+                    // 타겟 감지 로직
                     const element = document.elementFromPoint(touch.clientX, touch.clientY);
                     if (element) {
                         const memberEl = element.closest('[data-member-idx]');
                         const teamEl = element.closest('[data-team-idx]');
+                        
+                        // 성능 최적화를 위해 상태 변경 최소화
                         if (memberEl) {
                             const tIdx = parseInt(memberEl.dataset.teamIdx);
                             const mIdx = parseInt(memberEl.dataset.memberIdx);
@@ -660,20 +678,30 @@
                         }
                     }
                 } else {
-                    isScrollingRef.current = true;
-                    if (longPressTimerRef.current) {
-                        clearTimeout(longPressTimerRef.current);
-                        longPressTimerRef.current = null;
+                    // 아직 롱프레스 대기 중인 경우: 미세한 움직임은 무시 (Slop Logic)
+                    const moveX = Math.abs(touch.clientX - touchStartPos.current.x);
+                    const moveY = Math.abs(touch.clientY - touchStartPos.current.y);
+                    
+                    // 10px 이상 움직였을 때만 스크롤로 간주하고 롱프레스 취소
+                    if (moveX > 10 || moveY > 10) {
+                        isScrollingRef.current = true;
+                        if (longPressTimerRef.current) {
+                            clearTimeout(longPressTimerRef.current);
+                            longPressTimerRef.current = null;
+                        }
                     }
                 }
             };
 
             const handleTouchEnd = (e) => {
+                // 터치가 끝나면 타이머 정리
                 if (longPressTimerRef.current) {
                     clearTimeout(longPressTimerRef.current);
                     longPressTimerRef.current = null;
                 }
+
                 if (draggedItem) {
+                    // 드래그 종료 처리
                     if (dragOverItem) {
                         moveItem(draggedItem.teamIdx, draggedItem.memberIdx, dragOverItem.teamIdx, dragOverItem.memberIdx);
                     }
