@@ -56,7 +56,6 @@
             -webkit-user-select: none;
             -webkit-tap-highlight-color: transparent;
             -webkit-touch-callout: none;
-            /* Pull-to-refresh 구현을 위해 기본 overscroll 동작 제어 */
             overscroll-behavior-y: none;
         }
         
@@ -174,7 +173,8 @@
             Info: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>,
             Settings: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>,
             Upload: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>,
-            Check: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Check: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>,
+            Folder: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
         };
 
         const getLevelColor = (level) => {
@@ -209,7 +209,10 @@
         function App() {
             const [members, setMembers] = useState([]);
             const [sessionData, setSessionData] = useState([]);
+            // savedDrafts: 임시 저장 목록, confirmedHistory: 확정된 기록 목록
             const [savedDrafts, setSavedDrafts] = useState([]);
+            const [confirmedHistory, setConfirmedHistory] = useState([]);
+            
             const [meetingDate, setMeetingDate] = useState('');
             const [meetingTime, setMeetingTime] = useState({ start: '', end: '' }); 
             const [syncManagerName, setSyncManagerName] = useState(''); 
@@ -217,6 +220,7 @@
             const [teams, setTeams] = useState([]);
             const [isConfirmed, setIsConfirmed] = useState(false);
             const [activeTab, setActiveTab] = useState('generator');
+            const [storageTab, setStorageTab] = useState('drafts'); // 'drafts' or 'history'
             const [isCapturing, setIsCapturing] = useState(false);
             const [user, setUser] = useState(null);
             
@@ -233,18 +237,22 @@
             const ghostCardRef = useRef(null); 
             const longPressTimerRef = useRef(null);
             const isScrollingRef = useRef(false);
-            const touchStartPos = useRef({ x: 0, y: 0 }); // 터치 시작 위치 저장용 (보정 로직)
+            const touchStartPos = useRef({ x: 0, y: 0 });
 
             // Pull to Refresh State
             const [pullY, setPullY] = useState(0);
             const p2rStartY = useRef(0);
             const isP2RActive = useRef(false);
-            const currentPullY = useRef(0); // 렌더링 최적화를 위한 ref
+            const currentPullY = useRef(0); 
 
+            // Modal States
             const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
             const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
             const [targetDeleteId, setTargetDeleteId] = useState(null);
             const [isProcessing, setIsProcessing] = useState(false);
+            const [previewModalData, setPreviewModalData] = useState(null); // 모바일 프리뷰용
+            // Web Hover Preview Removed
+            // const [hoverPreviewData, setHoverPreviewData] = useState(null); 
 
             const teamRefs = useRef([]);
 
@@ -304,9 +312,18 @@
                         setSyncManagerName(data.managerName || "");
                     }
                 });
+                
+                // 팀 저장소 (Drafts & History 통합)
                 const unsubDrafts = getCol('team_drafts').onSnapshot(snap => {
-                    const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                    setSavedDrafts(data.sort((a,b) => b.createdAt.localeCompare(a.createdAt)));
+                    const allData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                    
+                    // 임시저장과 확정 기록 분리
+                    // isConfirmed 필드가 true이면 확정 기록, 없거나 false면 임시 저장
+                    const drafts = allData.filter(d => !d.isConfirmed).sort((a,b) => b.createdAt.localeCompare(a.createdAt));
+                    const histories = allData.filter(d => d.isConfirmed).sort((a,b) => b.meetingDate.localeCompare(a.meetingDate)); // 날짜 역순
+                    
+                    setSavedDrafts(drafts);
+                    setConfirmedHistory(histories);
                 });
                 return () => { unsubMembers(); unsubSession(); unsubSettings(); unsubDrafts(); };
             }, [user]);
@@ -323,7 +340,6 @@
             // --- Pull to Refresh Logic ---
             useEffect(() => {
                 const handleStart = (e) => {
-                    // 상단(scrollY <= 10)이고 드래그 중인 카드가 없을 때만 P2R 활성화
                     if (window.scrollY <= 10 && !draggedItem) { 
                         p2rStartY.current = e.touches[0].clientY;
                         isP2RActive.current = true;
@@ -331,50 +347,36 @@
                         isP2RActive.current = false;
                     }
                 };
-
                 const handleMove = (e) => {
-                    // P2R 비활성이거나 드래그 중이면 중단
                     if (!isP2RActive.current || draggedItem) return;
-                    
                     const y = e.touches[0].clientY;
                     const dy = y - p2rStartY.current;
-
                     if (dy > 0) {
-                        // 당기는 동작 시 저항감 적용
-                        const newPullY = Math.min(Math.pow(dy, 0.8), 150); // 최대 150px
+                        const newPullY = Math.min(Math.pow(dy, 0.8), 150);
                         currentPullY.current = newPullY;
                         setPullY(newPullY);
                     } else {
                         currentPullY.current = 0;
                         setPullY(0);
-                        isP2RActive.current = false; // 위로 올리면 취소
+                        isP2RActive.current = false; 
                     }
                 };
-
                 const handleEnd = () => {
                     if (!isP2RActive.current) return;
-
-                    if (currentPullY.current > 80) { // 임계값 80px 넘으면 새로고침
-                         window.location.reload();
-                    } else {
-                        setPullY(0);
-                        currentPullY.current = 0;
-                    }
+                    if (currentPullY.current > 80) { window.location.reload(); } 
+                    else { setPullY(0); currentPullY.current = 0; }
                     isP2RActive.current = false;
                 };
-
                 window.addEventListener('touchstart', handleStart, { passive: true });
-                window.addEventListener('touchmove', handleMove, { passive: false }); // 스크롤 제어 가능하게 non-passive
+                window.addEventListener('touchmove', handleMove, { passive: false }); 
                 window.addEventListener('touchend', handleEnd);
-
                 return () => {
                     window.removeEventListener('touchstart', handleStart);
                     window.removeEventListener('touchmove', handleMove);
                     window.removeEventListener('touchend', handleEnd);
                 };
-            }, [draggedItem]); // draggedItem 상태가 바뀌면 리스너 업데이트
+            }, [draggedItem]);
 
-            // 모든 참석자 목록 (시간순 정렬)
             const allAttendees = useMemo(() => {
                 if (!meetingDate) return [];
                 return sessionData
@@ -382,18 +384,14 @@
                     .sort((a,b) => {
                         const timeA = a.createdAt || '';
                         const timeB = b.createdAt || '';
-                        if (timeA && timeB) return timeA.localeCompare(timeB); // 먼저 신청한 순서
+                        if (timeA && timeB) return timeA.localeCompare(timeB); 
                         return a.name.localeCompare(b.name);
                     });
             }, [sessionData, meetingDate]);
 
-            // [핵심 로직] 선착순 Entry / Waiting 분리
             const maxEntryCount = useMemo(() => teamingSettings.teamCount * 6, [teamingSettings.teamCount]);
-            
             const entryList = useMemo(() => allAttendees.slice(0, maxEntryCount), [allAttendees, maxEntryCount]);
             const waitingList = useMemo(() => allAttendees.slice(maxEntryCount), [allAttendees, maxEntryCount]);
-
-            // 팀 메이커에서는 entryList만 사용하여 팀을 짬
             const selectedList = entryList;
 
             const levelStats = useMemo(() => {
@@ -409,13 +407,11 @@
                 return stats;
             }, [selectedList, members]);
 
-            // 재사용 가능한 카드 렌더링 (Entry/Waiting 통일)
             const renderPlayerCard = (p) => {
                 const masterInfo = members.find(m => m.id === p.memberId) || {};
                 const lvl = masterInfo.level || p.level;
                 const gender = masterInfo.gender || p.gender;
                 const isGuest = p.isGuest;
-                
                 return (
                     <div key={p.id} className="px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 flex items-center gap-2 shadow-sm">
                         <div className="flex items-center gap-1 text-left text-slate-900 leading-none">
@@ -431,26 +427,15 @@
             const reorderMembersWithGenderRule = (memberList) => {
                 const size = memberList.length;
                 if (size === 0) return [];
-
                 const females = memberList.filter(m => m.gender === '여성');
                 const others = memberList.filter(m => m.gender !== '여성');
-                
                 const result = new Array(size).fill(null);
-
-                if (females.length > 0 && size > 2) {
-                    result[2] = females.shift();
-                }
-                if (females.length > 0 && size > 5) {
-                    result[5] = females.shift();
-                }
-                
+                if (females.length > 0 && size > 2) result[2] = females.shift();
+                if (females.length > 0 && size > 5) result[5] = females.shift();
                 for (let i = 0; i < size; i++) {
                     if (result[i] === null) {
-                        if (others.length > 0) {
-                            result[i] = others.shift();
-                        } else if (females.length > 0) {
-                            result[i] = females.shift();
-                        }
+                        if (others.length > 0) result[i] = others.shift();
+                        else if (females.length > 0) result[i] = females.shift();
                     }
                 }
                 return result.filter(m => m !== null);
@@ -460,25 +445,13 @@
                 const { teamCount, keepCouples } = teamingSettings;
                 const totalAttendees = selectedList.length;
                 if (totalAttendees < teamCount) return;
-
-                // 재편성 시 확정 상태 및 저장된 데이터 초기화
                 localStorage.removeItem('otp_confirmed_teams');
                 setIsConfirmed(false);
-
                 let pool = selectedList.map(p => {
                     const masterInfo = members.find(m => m.id === p.memberId) || {};
                     const lvl = parseInt(masterInfo.level || p.level || 99);
-                    return {
-                        ...p,
-                        name: masterInfo.name || p.name,
-                        level: lvl,
-                        points: getLevelPoints(lvl),
-                        coupleId: masterInfo.coupleId || '',
-                        gender: masterInfo.gender || p.gender || '남성',
-                        isGuest: p.isGuest || false
-                    };
+                    return { ...p, name: masterInfo.name || p.name, level: lvl, points: getLevelPoints(lvl), coupleId: masterInfo.coupleId || '', gender: masterInfo.gender || p.gender || '남성', isGuest: p.isGuest || false };
                 });
-
                 let units = [];
                 let processedIds = new Set();
                 if (keepCouples) {
@@ -487,14 +460,7 @@
                             if (p.coupleId) {
                                 const partner = pool.find(o => o.memberId === p.coupleId && !processedIds.has(o.id));
                                 if (partner) {
-                                    units.push({ 
-                                        members: [p, partner], 
-                                        totalPoints: p.points + partner.points,
-                                        hasFemale: p.gender === '여성' || partner.gender === '여성',
-                                        isTopMale: p.level === 1 || partner.level === 1,
-                                        isTopFemale: p.level === 7 || partner.level === 7,
-                                        avgSkill: (p.points + partner.points) / 2
-                                    });
+                                    units.push({ members: [p, partner], totalPoints: p.points + partner.points, hasFemale: p.gender === '여성' || partner.gender === '여성', isTopMale: p.level === 1 || partner.level === 1, isTopFemale: p.level === 7 || partner.level === 7, avgSkill: (p.points + partner.points) / 2 });
                                     processedIds.add(p.id); processedIds.add(partner.id);
                                     return;
                                 }
@@ -506,111 +472,73 @@
                 } else {
                     units = pool.map(p => ({ members: [p], totalPoints: p.points, hasFemale: p.gender === '여성', isTopMale: p.level === 1, isTopFemale: p.level === 7, avgSkill: p.points }));
                 }
-
                 const baseSize = Math.floor(totalAttendees / teamCount);
                 const teamsWithExtra = totalAttendees % teamCount;
-                const resultTeams = Array.from({ length: teamCount }, (_, i) => ({ 
-                    members: [], 
-                    scoreSum: 0, 
-                    targetSize: baseSize + (i < teamsWithExtra ? 1 : 0),
-                    hasTopMale: false,
-                    hasTopFemale: false
-                }));
-
+                const resultTeams = Array.from({ length: teamCount }, (_, i) => ({ members: [], scoreSum: 0, targetSize: baseSize + (i < teamsWithExtra ? 1 : 0), hasTopMale: false, hasTopFemale: false }));
                 let unitsToAssign = shuffleArray(shuffleArray(units));
-
                 const topMaleUnit = unitsToAssign.find(u => u.isTopMale);
                 const topFemaleUnit = unitsToAssign.find(u => u.isTopFemale);
-
                 if (topMaleUnit && topFemaleUnit && teamCount >= 2) {
                     const randomIndices = shuffleArray(Array.from({length: teamCount}, (_, i) => i));
-                    const maleIdx = randomIndices[0];
-                    const femaleIdx = randomIndices[1];
-                    resultTeams[maleIdx].members.push(...topMaleUnit.members);
-                    resultTeams[maleIdx].scoreSum += topMaleUnit.totalPoints;
-                    resultTeams[maleIdx].hasTopMale = true;
-                    resultTeams[femaleIdx].members.push(...topFemaleUnit.members);
-                    resultTeams[femaleIdx].scoreSum += topFemaleUnit.totalPoints;
-                    resultTeams[femaleIdx].hasTopFemale = true;
+                    resultTeams[randomIndices[0]].members.push(...topMaleUnit.members); resultTeams[randomIndices[0]].scoreSum += topMaleUnit.totalPoints; resultTeams[randomIndices[0]].hasTopMale = true;
+                    resultTeams[randomIndices[1]].members.push(...topFemaleUnit.members); resultTeams[randomIndices[1]].scoreSum += topFemaleUnit.totalPoints; resultTeams[randomIndices[1]].hasTopFemale = true;
                     unitsToAssign = unitsToAssign.filter(u => u !== topMaleUnit && u !== topFemaleUnit);
                 }
-
                 const assignByBalancedRandom = (unitList, isFemalePriority = false) => {
                     const sorted = shuffleArray(unitList).sort((a, b) => b.avgSkill - a.avgSkill || Math.random() - 0.5);
                     sorted.forEach(unit => {
-                        let candidates = resultTeams
-                            .map((team, idx) => ({ 
-                                idx, 
-                                fCount: team.members.filter(m => m.gender === '여성').length,
-                                tCount: team.members.length,
-                                score: team.scoreSum,
-                                target: team.targetSize,
-                                hasTopMale: team.hasTopMale
-                            }))
-                            .filter(t => t.tCount + unit.members.length <= t.target);
+                        let candidates = resultTeams.map((team, idx) => ({ idx, fCount: team.members.filter(m => m.gender === '여성').length, tCount: team.members.length, score: team.scoreSum, target: team.targetSize, hasTopMale: team.hasTopMale })).filter(t => t.tCount + unit.members.length <= t.target);
                         if (unit.isTopFemale) candidates = candidates.filter(c => !c.hasTopMale);
                         if (unit.isTopMale) candidates = candidates.filter(c => !resultTeams[c.idx].hasTopFemale);
                         let targetIdx = -1;
                         if (candidates.length > 0) {
-                            const sortedCandidates = candidates.sort((a, b) => {
-                                if (Math.abs(a.score - b.score) < 0.5) return Math.random() - 0.5;
-                                if (isFemalePriority && unit.hasFemale) {
-                                    return (a.fCount - b.fCount) || (a.score - b.score);
-                                }
-                                return (a.score - b.score) || (a.tCount - b.tCount);
-                            });
+                            const sortedCandidates = candidates.sort((a, b) => { if (Math.abs(a.score - b.score) < 0.5) return Math.random() - 0.5; if (isFemalePriority && unit.hasFemale) { return (a.fCount - b.fCount) || (a.score - b.score); } return (a.score - b.score) || (a.tCount - b.tCount); });
                             targetIdx = sortedCandidates[0].idx;
-                        } else {
-                            targetIdx = resultTeams.findIndex(t => t.members.length < t.targetSize);
-                        }
-
-                        resultTeams[targetIdx].members.push(...unit.members);
-                        resultTeams[targetIdx].scoreSum += unit.totalPoints;
-                        if (unit.isTopMale) resultTeams[targetIdx].hasTopMale = true;
-                        if (unit.isTopFemale) resultTeams[targetIdx].hasTopFemale = true;
+                        } else { targetIdx = resultTeams.findIndex(t => t.members.length < t.targetSize); }
+                        resultTeams[targetIdx].members.push(...unit.members); resultTeams[targetIdx].scoreSum += unit.totalPoints;
+                        if (unit.isTopMale) resultTeams[targetIdx].hasTopMale = true; if (unit.isTopFemale) resultTeams[targetIdx].hasTopFemale = true;
                     });
                 };
-
                 assignByBalancedRandom(unitsToAssign.filter(u => u.hasFemale), true);
                 assignByBalancedRandom(unitsToAssign.filter(u => !u.hasFemale), false);
-
-                const finalTeams = resultTeams.map(t => {
-                    // 최초 편성 시 레벨순(오름차순 1->6)으로 정렬 후 여성 위치 룰 적용
-                    t.members.sort((a, b) => a.level - b.level);
-                    const reordered = reorderMembersWithGenderRule(t.members);
-                    return { members: reordered, scoreSum: Math.round(t.scoreSum * 10) / 10 };
-                });
-
-                setTeams(finalTeams);
-                setActiveTab('results');
+                const finalTeams = resultTeams.map(t => { t.members.sort((a, b) => a.level - b.level); const reordered = reorderMembersWithGenderRule(t.members); return { members: reordered, scoreSum: Math.round(t.scoreSum * 10) / 10 }; });
+                setTeams(finalTeams); setActiveTab('results');
             };
 
             const confirmTeams = async () => {
                 setIsConfirmed(true);
-                
-                // Local Storage for persistence across tabs
-                const persistentData = {
-                    teams,
-                    isConfirmed: true,
-                    updatedAt: new Date().toISOString()
-                };
+                const persistentData = { teams, isConfirmed: true, updatedAt: new Date().toISOString() };
                 localStorage.setItem('otp_confirmed_teams', JSON.stringify(persistentData));
-
-                // Server Storage (Firestore) for syncing with Attendance App
                 try {
                     const now = new Date();
                     const timeStr = now.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
                     
-                    await getCol('team_drafts').add({
-                        meetingDate: meetingDate, // Use correct state variable
-                        meetingTimeRange: `${meetingTime.start} ~ ${meetingTime.end}`, // Use correct state variable
-                        createdAt: now.toISOString(),
-                        timeLabel: timeStr,
-                        teams: teams,
-                        managerName: syncManagerName
-                    });
+                    // 1. 기존 확정 기록 확인 (같은 날짜)
+                    const draftsRef = getCol('team_drafts');
+                    const snapshot = await draftsRef.where('meetingDate', '==', meetingDate).where('isConfirmed', '==', true).get();
                     
-                    alert('편성이 확정되었습니다!\n이제 재편성하기 전까지 이 상태가 유지됩니다.');
+                    if (!snapshot.empty) {
+                        // 덮어쓰기
+                        const docId = snapshot.docs[0].id;
+                        await draftsRef.doc(docId).update({
+                            teams,
+                            updatedAt: now.toISOString(),
+                            managerName: syncManagerName
+                        });
+                         alert('기존 확정 기록을 업데이트했습니다.');
+                    } else {
+                        // 새로 추가
+                        await draftsRef.add({
+                            meetingDate,
+                            meetingTimeRange: `${meetingTime.start} ~ ${meetingTime.end}`,
+                            createdAt: now.toISOString(),
+                            timeLabel: timeStr,
+                            teams,
+                            managerName: syncManagerName,
+                            isConfirmed: true // 확정 플래그
+                        });
+                        alert('편성이 확정되었습니다!\n이제 재편성하기 전까지 이 상태가 유지됩니다.');
+                    }
                 } catch (e) {
                     console.error("Save failed", e);
                     alert("서버 저장 실패 (로컬에는 저장됨)");
@@ -619,282 +547,82 @@
 
             const moveItem = (sourceTeamIdx, sourceMemberIdx, targetTeamIdx, targetMemberIdx) => {
                 if (sourceTeamIdx === targetTeamIdx && sourceMemberIdx === targetMemberIdx) return;
-
                 const newTeams = [...teams];
                 const sourceTeam = newTeams[sourceTeamIdx];
                 const targetTeam = newTeams[targetTeamIdx];
-
                 const [movedMember] = sourceTeam.members.splice(sourceMemberIdx, 1);
-                
-                if (sourceTeamIdx === targetTeamIdx) {
-                    const actualTargetIdx = (targetMemberIdx === null || targetMemberIdx === undefined) 
-                        ? targetTeam.members.length 
-                        : targetMemberIdx;
-                    targetTeam.members.splice(actualTargetIdx, 0, movedMember);
-                } else {
-                    if (targetMemberIdx === undefined || targetMemberIdx === null) {
-                        targetTeam.members.push(movedMember);
-                    } else {
-                        targetTeam.members.splice(targetMemberIdx, 0, movedMember);
-                    }
-                }
-
+                if (sourceTeamIdx === targetTeamIdx) { const actualTargetIdx = (targetMemberIdx === null || targetMemberIdx === undefined) ? targetTeam.members.length : targetMemberIdx; targetTeam.members.splice(actualTargetIdx, 0, movedMember); } 
+                else { if (targetMemberIdx === undefined || targetMemberIdx === null) { targetTeam.members.push(movedMember); } else { targetTeam.members.splice(targetMemberIdx, 0, movedMember); } }
                 sourceTeam.scoreSum = Math.round(sourceTeam.members.reduce((acc, cur) => acc + cur.points, 0) * 10) / 10;
-                if (sourceTeamIdx !== targetTeamIdx) {
-                    targetTeam.scoreSum = Math.round(targetTeam.members.reduce((acc, cur) => acc + cur.points, 0) * 10) / 10;
-                }
-
+                if (sourceTeamIdx !== targetTeamIdx) { targetTeam.scoreSum = Math.round(targetTeam.members.reduce((acc, cur) => acc + cur.points, 0) * 10) / 10; }
                 newTeams[sourceTeamIdx].members = reorderMembersWithGenderRule(newTeams[sourceTeamIdx].members);
-                if (sourceTeamIdx !== targetTeamIdx) {
-                    newTeams[targetTeamIdx].members = reorderMembersWithGenderRule(newTeams[targetTeamIdx].members);
-                }
-
+                if (sourceTeamIdx !== targetTeamIdx) { newTeams[targetTeamIdx].members = reorderMembersWithGenderRule(newTeams[targetTeamIdx].members); }
                 setTeams(newTeams);
             };
 
-            const handleDragStart = (e, teamIdx, memberIdx) => {
-                setDraggedItem({ teamIdx, memberIdx });
-                e.dataTransfer.effectAllowed = 'move';
-            };
+            const handleDragStart = (e, teamIdx, memberIdx) => { setDraggedItem({ teamIdx, memberIdx }); e.dataTransfer.effectAllowed = 'move'; };
+            const handleDragOver = (e, teamIdx, memberIdx) => { e.preventDefault(); if (dragOverItem?.teamIdx !== teamIdx || dragOverItem?.memberIdx !== memberIdx) { setDragOverItem({ teamIdx, memberIdx }); } };
+            const handleDragEnd = () => { setDraggedItem(null); setDragOverItem(null); };
+            const handleDrop = (e, targetTeamIdx, targetMemberIdx) => { e.preventDefault(); setDragOverItem(null); if (!draggedItem) return; moveItem(draggedItem.teamIdx, draggedItem.memberIdx, targetTeamIdx, targetMemberIdx); setDraggedItem(null); };
 
-            const handleDragOver = (e, teamIdx, memberIdx) => {
-                e.preventDefault(); 
-                if (dragOverItem?.teamIdx !== teamIdx || dragOverItem?.memberIdx !== memberIdx) {
-                    setDragOverItem({ teamIdx, memberIdx });
-                }
-            };
-
-            const handleDragEnd = () => {
-                setDraggedItem(null);
-                setDragOverItem(null);
-            };
-
-            const handleDrop = (e, targetTeamIdx, targetMemberIdx) => {
-                e.preventDefault();
-                setDragOverItem(null); 
-                if (!draggedItem) return;
-                moveItem(draggedItem.teamIdx, draggedItem.memberIdx, targetTeamIdx, targetMemberIdx);
-                setDraggedItem(null);
-            };
-
-            // Mobile Touch Handlers - Improved for iPad/Mobile Stability
             const handleTouchStart = (e, teamIdx, memberIdx, memberData) => {
                 if (!e.touches || e.touches.length === 0) return;
                 const touch = e.touches[0];
-                const startX = touch.clientX;
-                const startY = touch.clientY;
-                
-                // 터치 시작 위치 저장
-                touchStartPos.current = { x: startX, y: startY };
+                touchStartPos.current = { x: touch.clientX, y: touch.clientY };
                 isScrollingRef.current = false;
-
-                // 기존 타이머 클리어
                 if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
-
-                // Long Press Detection (0.5s)
                 longPressTimerRef.current = setTimeout(() => {
-                    // 스크롤 중이 아니라면 드래그 모드 진입
                     if (!isScrollingRef.current) {
                         if (navigator.vibrate) navigator.vibrate(50);
                         setDraggedItem({ teamIdx, memberIdx });
-                        setMobileGhost({ memberData, initialX: startX, initialY: startY });
+                        setMobileGhost({ memberData, initialX: touch.clientX, initialY: touch.clientY });
                     }
                 }, 500);
             };
-
             const handleTouchMove = (e) => {
                 if (!e.touches || e.touches.length === 0) return;
                 const touch = e.touches[0];
-
                 if (draggedItem) {
-                    // 이미 드래그 중인 경우: 스크롤 막고 고스트 이동
                     if (e.cancelable) e.preventDefault(); 
-                    
-                    if (ghostCardRef.current) {
-                        ghostCardRef.current.style.left = `${touch.clientX}px`;
-                        ghostCardRef.current.style.top = `${touch.clientY}px`;
-                    }
-                    
-                    // 타겟 감지 로직
+                    if (ghostCardRef.current) { ghostCardRef.current.style.left = `${touch.clientX}px`; ghostCardRef.current.style.top = `${touch.clientY}px`; }
                     const element = document.elementFromPoint(touch.clientX, touch.clientY);
                     if (element) {
-                        const memberEl = element.closest('[data-member-idx]');
-                        const teamEl = element.closest('[data-team-idx]');
-                        
-                        // 성능 최적화를 위해 상태 변경 최소화
-                        if (memberEl) {
-                            const tIdx = parseInt(memberEl.dataset.teamIdx);
-                            const mIdx = parseInt(memberEl.dataset.memberIdx);
-                            if (dragOverItem?.teamIdx !== tIdx || dragOverItem?.memberIdx !== mIdx) {
-                                setDragOverItem({ teamIdx: tIdx, memberIdx: mIdx });
-                            }
-                        } else if (teamEl) {
-                            const tIdx = parseInt(teamEl.dataset.teamIdx);
-                            if (dragOverItem?.teamIdx !== tIdx || dragOverItem?.memberIdx !== null) {
-                                setDragOverItem({ teamIdx: tIdx, memberIdx: null }); 
-                            }
-                        }
+                        const memberEl = element.closest('[data-member-idx]'); const teamEl = element.closest('[data-team-idx]');
+                        if (memberEl) { const tIdx = parseInt(memberEl.dataset.teamIdx); const mIdx = parseInt(memberEl.dataset.memberIdx); if (dragOverItem?.teamIdx !== tIdx || dragOverItem?.memberIdx !== mIdx) { setDragOverItem({ teamIdx: tIdx, memberIdx: mIdx }); } } 
+                        else if (teamEl) { const tIdx = parseInt(teamEl.dataset.teamIdx); if (dragOverItem?.teamIdx !== tIdx || dragOverItem?.memberIdx !== null) { setDragOverItem({ teamIdx: tIdx, memberIdx: null }); } }
                     }
                 } else {
-                    // 아직 롱프레스 대기 중인 경우: 미세한 움직임은 무시 (Slop Logic)
-                    const moveX = Math.abs(touch.clientX - touchStartPos.current.x);
-                    const moveY = Math.abs(touch.clientY - touchStartPos.current.y);
-                    
-                    // 10px 이상 움직였을 때만 스크롤로 간주하고 롱프레스 취소
-                    if (moveX > 10 || moveY > 10) {
-                        isScrollingRef.current = true;
-                        if (longPressTimerRef.current) {
-                            clearTimeout(longPressTimerRef.current);
-                            longPressTimerRef.current = null;
-                        }
-                    }
+                    const moveX = Math.abs(touch.clientX - touchStartPos.current.x); const moveY = Math.abs(touch.clientY - touchStartPos.current.y);
+                    if (moveX > 10 || moveY > 10) { isScrollingRef.current = true; if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null; } }
                 }
             };
-
             const handleTouchEnd = (e) => {
-                // 터치가 끝나면 타이머 정리
-                if (longPressTimerRef.current) {
-                    clearTimeout(longPressTimerRef.current);
-                    longPressTimerRef.current = null;
-                }
-
-                if (draggedItem) {
-                    // 드래그 종료 처리
-                    if (dragOverItem) {
-                        moveItem(draggedItem.teamIdx, draggedItem.memberIdx, dragOverItem.teamIdx, dragOverItem.memberIdx);
-                    }
-                    setDraggedItem(null);
-                    setMobileGhost(null);
-                    setDragOverItem(null);
-                }
+                if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null; }
+                if (draggedItem) { if (dragOverItem) { moveItem(draggedItem.teamIdx, draggedItem.memberIdx, dragOverItem.teamIdx, dragOverItem.memberIdx); } setDraggedItem(null); setMobileGhost(null); setDragOverItem(null); }
             };
-
-            const handleContextMenu = (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                return false;
-            };
+            const handleContextMenu = (e) => { e.preventDefault(); e.stopPropagation(); return false; };
 
             const confirmSaveDraft = async () => {
                 setIsProcessing(true);
                 try {
                     const now = new Date();
                     const timeStr = now.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-                    await getCol('team_drafts').add({
-                        meetingDate, meetingTimeRange: `${meetingTime.start} ~ ${meetingTime.end}`,
-                        createdAt: now.toISOString(), timeLabel: timeStr, teams, managerName: syncManagerName 
-                    });
+                    await getCol('team_drafts').add({ meetingDate, meetingTimeRange: `${meetingTime.start} ~ ${meetingTime.end}`, createdAt: now.toISOString(), timeLabel: timeStr, teams, managerName: syncManagerName, isConfirmed: false });
                     setIsSaveModalOpen(false);
-                } catch (e) { alert("저장 중 오류가 발생했습니다."); }
-                finally { setIsProcessing(false); }
+                } catch (e) { alert("저장 중 오류가 발생했습니다."); } finally { setIsProcessing(false); }
             };
 
-            const openDeleteModal = (id) => {
-                setTargetDeleteId(id);
-                setIsDeleteModalOpen(true);
-            };
+            const openDeleteModal = (id) => { setTargetDeleteId(id); setIsDeleteModalOpen(true); };
+            const confirmDeleteDraft = async () => { if (!targetDeleteId) return; setIsProcessing(true); try { await getCol('team_drafts').doc(targetDeleteId).delete(); setIsDeleteModalOpen(false); setTargetDeleteId(null); } catch (e) { alert("삭제 처리 중 오류가 발생했습니다."); } finally { setIsProcessing(false); } };
+            const loadDraft = (draft) => { setTeams(draft.teams); setSyncManagerName(draft.managerName || ""); setActiveTab('results'); setIsConfirmed(!!draft.isConfirmed); setPreviewModalData(null); };
 
-            const confirmDeleteDraft = async () => {
-                if (!targetDeleteId) return;
-                setIsProcessing(true);
-                try {
-                    await getCol('team_drafts').doc(targetDeleteId).delete();
-                    setIsDeleteModalOpen(false);
-                    setTargetDeleteId(null);
-                } catch (e) { alert("삭제 처리 중 오류가 발생했습니다."); }
-                finally { setIsProcessing(false); }
-            };
-
-            const loadDraft = (draft) => { setTeams(draft.teams); setSyncManagerName(draft.managerName || ""); setActiveTab('results'); };
-
-            const captureIndividualTeams = async () => {
-                setIsCapturing(true);
-                try {
-                    for (let i = 0; i < teams.length; i++) {
-                        const element = teamRefs.current[i];
-                        if (element) {
-                            const levelTags = element.querySelectorAll('.level-tag');
-                            levelTags.forEach(tag => tag.style.display = 'none');
-                            const canvas = await html2canvas(element, { backgroundColor: '#f1f5f9', scale: 2 });
-                            const link = document.createElement('a');
-                            link.href = canvas.toDataURL('image/png'); link.download = `${meetingDate}_TEAM_${i + 1}.png`;
-                            link.click();
-                            levelTags.forEach(tag => tag.style.display = 'inline-flex');
-                        }
-                    }
-                } catch (e) {}
-                setIsCapturing(false);
-            };
-
-            const captureAllInOne = async () => {
-                setIsCapturing(true);
-                const container = document.createElement('div');
-                container.style.padding = '40px'; container.style.backgroundColor = '#f1f5f9';
-                container.style.width = '1200px'; container.style.display = 'grid';
-                container.style.gridTemplateColumns = 'repeat(3, 1fr)'; container.style.gap = '20px';
-                container.style.position = 'fixed'; container.style.top = '-9999px';
-                const header = document.createElement('div');
-                header.style.gridColumn = 'span 3'; header.style.textAlign = 'center'; header.style.marginBottom = '30px';
-                header.innerHTML = `<h1 style="font-size: 36px; font-weight: 900; color: #0f172a; margin-bottom: 8px;">OTP FC TEAM LIST</h1><div style="font-size: 16px; font-weight: 700; color: #64748b;">DATE: ${meetingDate} (${meetingTime.start} ~ ${meetingTime.end}) | MANAGER: ${syncManagerName}</div>`;
-                container.appendChild(header); document.body.appendChild(container);
-                teamRefs.current.forEach((ref) => {
-                    if (ref) {
-                        const clone = ref.cloneNode(true);
-                        clone.querySelectorAll('.level-tag').forEach(tag => tag.remove());
-                        clone.style.width = '100%'; clone.style.transform = 'none';
-                        clone.style.boxShadow = 'none'; clone.style.border = '1px solid #e2e8f0';
-                        container.appendChild(clone);
-                    }
-                });
-                try {
-                    const canvas = await html2canvas(container, { backgroundColor: '#f1f5f9', scale: 2 });
-                    const link = document.createElement('a');
-                    link.href = canvas.toDataURL('image/png'); link.download = `${meetingDate}_ALL_TEAMS.png`;
-                    link.click();
-                } catch (e) {}
-                document.body.removeChild(container); setIsCapturing(false);
-            };
-
-            const handleFontFileDrop = (e) => {
-                e.preventDefault();
-                setIsDraggingFile(false);
-                const file = e.dataTransfer.files[0];
-                if (file && (file.name.endsWith('.ttf') || file.name.endsWith('.otf') || file.name.endsWith('.woff') || file.name.endsWith('.woff2'))) {
-                    const reader = new FileReader();
-                    reader.onload = (event) => {
-                        const fontData = event.target.result;
-                        const fontName = 'CustomUploadedFont';
-                        const fontFace = new FontFace(fontName, `url(${fontData})`);
-                        
-                        fontFace.load().then((loadedFace) => {
-                            document.fonts.add(loadedFace);
-                            document.documentElement.style.setProperty('--main-font', `'${fontName}', sans-serif`);
-                            document.documentElement.style.setProperty('--bold-font', `'${fontName}', sans-serif`);
-                            setCustomFontName(file.name);
-                            alert(`폰트가 "${file.name}"(으)로 변경되었습니다!`);
-                        }).catch(err => {
-                            console.error('Font loading failed:', err);
-                            alert('폰트 로드 실패: 유효한 폰트 파일인지 확인해주세요.');
-                        });
-                    };
-                    reader.readAsDataURL(file);
-                } else {
-                    alert('ttf, otf, woff 파일만 지원합니다.');
-                }
-            };
+            const captureIndividualTeams = async () => { setIsCapturing(true); try { for (let i = 0; i < teams.length; i++) { const element = teamRefs.current[i]; if (element) { const levelTags = element.querySelectorAll('.level-tag'); levelTags.forEach(tag => tag.style.display = 'none'); const canvas = await html2canvas(element, { backgroundColor: '#f1f5f9', scale: 2 }); const link = document.createElement('a'); link.href = canvas.toDataURL('image/png'); link.download = `${meetingDate}_TEAM_${i + 1}.png`; link.click(); levelTags.forEach(tag => tag.style.display = 'inline-flex'); } } } catch (e) {} setIsCapturing(false); };
+            const captureAllInOne = async () => { setIsCapturing(true); const container = document.createElement('div'); container.style.padding = '40px'; container.style.backgroundColor = '#f1f5f9'; container.style.width = '1200px'; container.style.display = 'grid'; container.style.gridTemplateColumns = 'repeat(3, 1fr)'; container.style.gap = '20px'; container.style.position = 'fixed'; container.style.top = '-9999px'; const header = document.createElement('div'); header.style.gridColumn = 'span 3'; header.style.textAlign = 'center'; header.style.marginBottom = '30px'; header.innerHTML = `<h1 style="font-size: 36px; font-weight: 900; color: #0f172a; margin-bottom: 8px;">OTP FC TEAM LIST</h1><div style="font-size: 16px; font-weight: 700; color: #64748b;">DATE: ${meetingDate} (${meetingTime.start} ~ ${meetingTime.end}) | MANAGER: ${syncManagerName}</div>`; container.appendChild(header); document.body.appendChild(container); teamRefs.current.forEach((ref) => { if (ref) { const clone = ref.cloneNode(true); clone.querySelectorAll('.level-tag').forEach(tag => tag.remove()); clone.style.width = '100%'; clone.style.transform = 'none'; clone.style.boxShadow = 'none'; clone.style.border = '1px solid #e2e8f0'; container.appendChild(clone); } }); try { const canvas = await html2canvas(container, { backgroundColor: '#f1f5f9', scale: 2 }); const link = document.createElement('a'); link.href = canvas.toDataURL('image/png'); link.download = `${meetingDate}_ALL_TEAMS.png`; link.click(); } catch (e) {} document.body.removeChild(container); setIsCapturing(false); };
+            const handleFontFileDrop = (e) => { e.preventDefault(); setIsDraggingFile(false); const file = e.dataTransfer.files[0]; if (file && (file.name.endsWith('.ttf') || file.name.endsWith('.otf') || file.name.endsWith('.woff') || file.name.endsWith('.woff2'))) { const reader = new FileReader(); reader.onload = (event) => { const fontData = event.target.result; const fontName = 'CustomUploadedFont'; const fontFace = new FontFace(fontName, `url(${fontData})`); fontFace.load().then((loadedFace) => { document.fonts.add(loadedFace); document.documentElement.style.setProperty('--main-font', `'${fontName}', sans-serif`); document.documentElement.style.setProperty('--bold-font', `'${fontName}', sans-serif`); setCustomFontName(file.name); alert(`폰트가 "${file.name}"(으)로 변경되었습니다!`); }).catch(err => { console.error('Font loading failed:', err); alert('폰트 로드 실패: 유효한 폰트 파일인지 확인해주세요.'); }); }; reader.readAsDataURL(file); } else { alert('ttf, otf, woff 파일만 지원합니다.'); } };
 
             return (
                 <div className="max-w-7xl mx-auto p-4 sm:p-6 pb-24 text-left">
-                    {/* Pull to Refresh Indicator */}
-                    <div 
-                        className="fixed top-0 left-0 w-full flex justify-center items-center pointer-events-none z-[9999]"
-                        style={{ 
-                            height: '80px', 
-                            transform: `translateY(${pullY - 80}px)`,
-                            opacity: pullY > 0 ? 1 : 0,
-                            transition: isP2RActive.current ? 'none' : 'transform 0.3s'
-                        }}
-                    >
+                    <div className="fixed top-0 left-0 w-full flex justify-center items-center pointer-events-none z-[9999]" style={{ height: '80px', transform: `translateY(${pullY - 80}px)`, opacity: pullY > 0 ? 1 : 0, transition: isP2RActive.current ? 'none' : 'transform 0.3s' }}>
                         <div className="bg-white/90 backdrop-blur-md rounded-full px-4 py-2 shadow-lg flex items-center gap-2 text-slate-600 border border-slate-200">
                              <Icon.Refresh className={`transition-all ${pullY > 80 ? 'rotate-180 text-blue-600' : ''}`} />
                              <span className="text-xs font-black">{pullY > 80 ? '놓아서 새로고침' : '당겨서 새로고침'}</span>
@@ -907,20 +635,11 @@
                             <div className="inline-flex flex-col items-center bg-white px-6 py-3 rounded-[24px] border border-slate-200 shadow-sm transition-all hover:shadow-md">
                                 <div className="flex items-center gap-2 mb-1">
                                     <span className="text-sm font-black text-blue-600 uppercase tracking-widest">{meetingDate || 'Syncing...'}</span>
-                                    {meetingTime.start && (
-                                        <React.Fragment>
-                                            <div className="w-px h-3 bg-slate-200" />
-                                            <span className="text-sm font-black text-green-600 flex items-center gap-1"><Icon.Clock /> {meetingTime.start} ~ {meetingTime.end}</span>
-                                        </React.Fragment>
-                                    )}
+                                    {meetingTime.start && <div className="flex items-center gap-1 text-sm font-black text-green-600"><Icon.Clock /> {meetingTime.start} ~ {meetingTime.end}</div>}
                                 </div>
                                 <span className="text-xs font-bold text-slate-400">{selectedList.length}명 참여 확정</span>
                             </div>
-                            {syncManagerName && (
-                                <div className="flex items-center gap-2 text-blue-600 font-bold text-xs uppercase tracking-wide bg-blue-50 px-5 py-2 rounded-full border border-blue-100 shadow-sm">
-                                    <Icon.Shield /> <span className="font-black underline decoration-2 underline-offset-4 decoration-blue-200">{syncManagerName}</span>
-                                </div>
-                            )}
+                            {syncManagerName && <div className="flex items-center gap-2 text-blue-600 font-bold text-xs uppercase tracking-wide bg-blue-50 px-5 py-2 rounded-full border border-blue-100 shadow-sm"><Icon.Shield /> <span className="font-black underline decoration-2 underline-offset-4 decoration-blue-200">{syncManagerName}</span></div>}
                         </div>
                     </header>
 
@@ -950,102 +669,30 @@
                                         ))}
                                     </div>
                                 </div>
-                                
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8 max-h-[500px] overflow-y-auto custom-scrollbar pr-2">
-                                    {(() => {
-                                        const sortMembers = (list) => {
-                                            return [...list].sort((a, b) => {
-                                                const memberA = members.find(m => m.id === a.memberId) || {};
-                                                const memberB = members.find(m => m.id === b.memberId) || {};
-                                                
-                                                const nA = parseInt(memberA.level || a.level || 99);
-                                                const nB = parseInt(memberB.level || b.level || 99);
-                                                const sA = nA > 6 ? nA - 6 : nA;
-                                                const sB = nB > 6 ? nB - 6 : nB;
-                                                
-                                                if (sA !== sB) return sA - sB;
-                                                return (memberA.name || a.name || '').localeCompare(memberB.name || b.name || '');
-                                            });
-                                        };
-
-                                        const maleMembers = entryList.filter(p => {
-                                            const m = members.find(x => x.id === p.memberId) || {};
-                                            return (m.gender || p.gender || '남성') === '남성';
-                                        });
-
-                                        const femaleMembers = entryList.filter(p => {
-                                            const m = members.find(x => x.id === p.memberId) || {};
-                                            return (m.gender || p.gender || '남성') === '여성';
-                                        });
-
-                                        return (
-                                            <>
-                                                <div className="flex flex-col gap-2">
-                                                    <div className="sticky top-0 bg-white/95 backdrop-blur z-10 py-2 border-b border-slate-100 flex justify-between items-center mb-2">
-                                                        <span className="text-xs font-black text-blue-600 flex items-center gap-1.5 uppercase tracking-wider">
-                                                            Male Player 
-                                                            <span className="bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full text-[10px]">{maleMembers.length}</span>
-                                                        </span>
-                                                    </div>
-                                                    <div className="flex flex-wrap gap-2 content-start min-h-[50px]">
-                                                        {maleMembers.length === 0 ? (
-                                                            <div className="w-full text-center py-4 text-xs text-slate-300 font-bold">남성 플레이어가 없습니다.</div>
-                                                        ) : sortMembers(maleMembers).map(renderPlayerCard)}
-                                                    </div>
-                                                </div>
-
-                                                <div className="flex flex-col gap-2 md:border-l md:border-slate-50 md:pl-4">
-                                                    <div className="sticky top-0 bg-white/95 backdrop-blur z-10 py-2 border-b border-slate-100 flex justify-between items-center mb-2">
-                                                        <span className="text-xs font-black text-pink-500 flex items-center gap-1.5 uppercase tracking-wider">
-                                                            Female Player
-                                                            <span className="bg-pink-100 text-pink-600 px-2 py-0.5 rounded-full text-[10px]">{femaleMembers.length}</span>
-                                                        </span>
-                                                    </div>
-                                                    <div className="flex flex-wrap gap-2 content-start min-h-[50px]">
-                                                        {femaleMembers.length === 0 ? (
-                                                            <div className="w-full text-center py-4 text-xs text-slate-300 font-bold">여성 플레이어가 없습니다.</div>
-                                                        ) : sortMembers(femaleMembers).map(renderPlayerCard)}
-                                                    </div>
-                                                </div>
-                                            </>
-                                        );
-                                    })()}
+                                    {/* Entry List Render */}
+                                    <div className="flex flex-col gap-2">
+                                        <div className="sticky top-0 bg-white/95 backdrop-blur z-10 py-2 border-b border-slate-100 flex justify-between items-center mb-2"><span className="text-xs font-black text-blue-600 flex items-center gap-1.5 uppercase tracking-wider">Male Player</span></div>
+                                        <div className="flex flex-wrap gap-2 content-start min-h-[50px]">{entryList.filter(p => (members.find(m => m.id === p.memberId)?.gender || p.gender) === '남성').map(renderPlayerCard)}</div>
+                                    </div>
+                                    <div className="flex flex-col gap-2 md:border-l md:border-slate-50 md:pl-4">
+                                        <div className="sticky top-0 bg-white/95 backdrop-blur z-10 py-2 border-b border-slate-100 flex justify-between items-center mb-2"><span className="text-xs font-black text-pink-500 flex items-center gap-1.5 uppercase tracking-wider">Female Player</span></div>
+                                        <div className="flex flex-wrap gap-2 content-start min-h-[50px]">{entryList.filter(p => (members.find(m => m.id === p.memberId)?.gender || p.gender) === '여성').map(renderPlayerCard)}</div>
+                                    </div>
                                 </div>
                                 {waitingList.length > 0 && (
                                     <div className="mt-8 pt-6 border-t border-slate-100">
                                         <h4 className="text-xs font-black text-orange-500 uppercase mb-4 text-left">Waiting List ({waitingList.length})</h4>
-                                        <div className="flex flex-wrap gap-2">
-                                            {waitingList.map(renderPlayerCard)}
-                                        </div>
+                                        <div className="flex flex-wrap gap-2">{waitingList.map(renderPlayerCard)}</div>
                                     </div>
                                 )}
                             </div>
-
                             <div className="bg-white p-8 rounded-[40px] border border-slate-200 shadow-lg text-slate-900 text-left">
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 mb-8 text-left">
-                                    <div className="flex flex-col gap-2 text-left text-slate-900">
-                                        <label className="text-[10px] font-black text-slate-400 ml-1 uppercase text-left">Team Count</label>
-                                        <select className="p-4 bg-slate-50 rounded-2xl font-black text-lg text-left" value={teamingSettings.teamCount} onChange={e => setTeamingSettings({...teamingSettings, teamCount: parseInt(e.target.value)})}>
-                                            {[2,3,4,5,6].map(v => <option key={v} value={v}>{v}개 팀 균등 편성</option>)}
-                                        </select>
-                                    </div>
-                                    <div className="flex items-end">
-                                        <label className="w-full flex items-center justify-between p-4 bg-slate-50 rounded-2xl border-2 border-transparent hover:border-blue-100 transition-all cursor-pointer">
-                                            <span className="text-xs font-black text-slate-600">커플 무조건 동반 배정</span>
-                                            <input type="checkbox" checked={teamingSettings.keepCouples} onChange={e => setTeamingSettings({...teamingSettings, keepCouples: e.target.checked})} className="w-6 h-6 accent-blue-600 rounded" />
-                                        </label>
-                                    </div>
+                                    <div className="flex flex-col gap-2 text-left text-slate-900"><label className="text-[10px] font-black text-slate-400 ml-1 uppercase text-left">Team Count</label><select className="p-4 bg-slate-50 rounded-2xl font-black text-lg text-left" value={teamingSettings.teamCount} onChange={e => setTeamingSettings({...teamingSettings, teamCount: parseInt(e.target.value)})}>{[2,3,4,5,6].map(v => <option key={v} value={v}>{v}개 팀 균등 편성</option>)}</select></div>
+                                    <div className="flex items-end"><label className="w-full flex items-center justify-between p-4 bg-slate-50 rounded-2xl border-2 border-transparent hover:border-blue-100 transition-all cursor-pointer"><span className="text-xs font-black text-slate-600">커플 무조건 동반 배정</span><input type="checkbox" checked={teamingSettings.keepCouples} onChange={e => setTeamingSettings({...teamingSettings, keepCouples: e.target.checked})} className="w-6 h-6 accent-blue-600 rounded" /></label></div>
                                 </div>
-                                <div className="p-5 bg-blue-50 border border-blue-100 rounded-3xl mb-8">
-                                    <h4 className="text-xs font-black text-blue-600 uppercase mb-2 flex items-center gap-1.5">
-                                        <Icon.Info /> Smart Balancing Engine
-                                    </h4>
-                                    <ul className="text-[11px] text-slate-600 font-bold space-y-1.5 text-left">
-                                        <li>• <span className="text-blue-700 font-black">격리 로직:</span> 1단 남성과 7단 여성은 어떤 경우에도 무조건 다른 팀으로 먼저 분리됩니다.</li>
-                                        <li>• <span className="text-blue-700 font-black">균등 인원:</span> 총 인원을 팀 수로 나눈 수치를 수학적으로 엄격히 준수합니다.</li>
-                                        <li>• <span className="text-blue-700 font-black">무작위성:</span> 결과 고착화를 방지하기 위해 배정 순서와 후보 팀 선택에 랜덤 노이즈를 부여합니다.</li>
-                                    </ul>
-                                </div>
+                                <div className="p-5 bg-blue-50 border border-blue-100 rounded-3xl mb-8"><h4 className="text-xs font-black text-blue-600 uppercase mb-2 flex items-center gap-1.5"><Icon.Info /> Smart Balancing Engine</h4><ul className="text-[11px] text-slate-600 font-bold space-y-1.5 text-left"><li>• 1단 남성과 7단 여성은 어떤 경우에도 무조건 다른 팀으로 먼저 분리됩니다.</li><li>• 총 인원을 팀 수로 나눈 수치를 수학적으로 엄격히 준수합니다.</li><li>• 결과 고착화를 방지하기 위해 배정 순서와 후보 팀 선택에 랜덤 노이즈를 부여합니다.</li></ul></div>
                                 <button onClick={generateTeams} className="w-full py-5 bg-blue-600 text-white rounded-[24px] font-black text-lg shadow-xl shadow-blue-100 hover:bg-blue-700 transition-all">편성 시작</button>
                             </div>
                         </div>
@@ -1053,132 +700,34 @@
 
                     {activeTab === 'results' && (
                         <div className="animate-fade-in text-slate-900 text-left">
-                            {/* Confirmed Banner */}
-                            {isConfirmed && (
-                                <div className="bg-green-100 border-2 border-green-400 text-green-700 px-4 py-2 rounded-2xl mb-4 flex items-center justify-center gap-2 animate-fade-in">
-                                    <Icon.Check /> <span className="font-black text-sm">확정된 편성입니다 (자동 저장 중)</span>
-                                </div>
-                            )}
-
-                            {/* Mobile Ghost Card (follows touch) */}
+                            {isConfirmed && <div className="bg-green-100 border-2 border-green-400 text-green-700 px-4 py-2 rounded-2xl mb-4 flex items-center justify-center gap-2 animate-fade-in"><Icon.Check /> <span className="font-black text-sm">확정된 편성입니다 (자동 저장 중)</span></div>}
                             {mobileGhost && draggedItem && (
-                                <div 
-                                    ref={ghostCardRef}
-                                    className="ghost-card bg-white p-3 rounded-2xl border-2 border-blue-500 flex items-center justify-between"
-                                    style={{ left: mobileGhost.initialX, top: mobileGhost.initialY }}
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-8 h-8 flex items-center justify-center rounded-full bg-blue-100 text-blue-600 font-black text-xs">
-                                            {draggedItem.memberIdx + 1}
-                                        </div>
-                                        <div className="flex flex-col">
-                                            <div className="flex items-center gap-1">
-                                                <span className="font-black text-slate-900 text-sm">{mobileGhost.memberData.name}</span>
-                                                {mobileGhost.memberData.gender === '여성' && <span className="text-[9px] font-black px-1 py-0.5 bg-pink-100 text-pink-600 rounded">W</span>}
-                                                {mobileGhost.memberData.isGuest && <span className="text-[6px] font-black bg-blue-100 text-blue-600 px-0.5 rounded-sm">G</span>}
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className={`text-[10px] font-black px-2 py-1 rounded level-tag ${getLevelColor(mobileGhost.memberData.level)}`}>
-                                        {mobileGhost.memberData.level}
-                                    </div>
+                                <div ref={ghostCardRef} className="ghost-card bg-white p-3 rounded-2xl border-2 border-blue-500 flex items-center justify-between" style={{ left: mobileGhost.initialX, top: mobileGhost.initialY }}>
+                                    <div className="flex items-center gap-3"><div className="w-8 h-8 flex items-center justify-center rounded-full bg-blue-100 text-blue-600 font-black text-xs">{draggedItem.memberIdx + 1}</div><div className="flex flex-col"><div className="flex items-center gap-1"><span className="font-black text-slate-900 text-sm">{mobileGhost.memberData.name}</span>{mobileGhost.memberData.gender === '여성' && <span className="text-[9px] font-black px-1 py-0.5 bg-pink-100 text-pink-600 rounded">W</span>}{mobileGhost.memberData.isGuest && <span className="text-[6px] font-black bg-blue-100 text-blue-600 px-0.5 rounded-sm">G</span>}</div></div></div><div className={`text-[10px] font-black px-2 py-1 rounded level-tag ${getLevelColor(mobileGhost.memberData.level)}`}>{mobileGhost.memberData.level}</div>
                                 </div>
                             )}
-
-                            {teams.length === 0 ? (
-                                <div className="py-20 text-center text-slate-300 font-black">결과가 없습니다.</div>
-                            ) : (
+                            {teams.length === 0 ? <div className="py-20 text-center text-slate-300 font-black">결과가 없습니다.</div> : (
                                 <>
                                     <div className="grid grid-cols-3 gap-1.5 md:gap-4 text-left">
                                         {teams.map((team, idx) => (
-                                            <div 
-                                                key={idx} 
-                                                ref={el => teamRefs.current[idx] = el} 
-                                                className="team-card bg-white rounded-2xl md:rounded-[32px] shadow-lg md:shadow-xl overflow-hidden border border-slate-100 text-left h-full flex flex-col"
-                                                data-team-idx={idx}
-                                                onDragOver={(e) => {
-                                                    e.preventDefault();
-                                                    handleDragOver(e, idx, null); // Container hover implies dragging to end/empty space
-                                                }}
-                                                onDrop={(e) => {
-                                                    e.preventDefault();
-                                                    handleDrop(e, idx, null);
-                                                }}
-                                                onTouchMove={handleTouchMove}
-                                                onTouchEnd={handleTouchEnd}
-                                            >
-                                                <div className={`p-2 md:p-4 text-center font-black text-white flex flex-col md:flex-row justify-between items-center px-2 md:px-6 ${idx === 0 ? 'bg-rose-500' : idx === 1 ? 'bg-blue-500' : idx === 2 ? 'bg-emerald-600' : idx === 3 ? 'bg-orange-500' : 'bg-violet-600'}`}>
-                                                    <div className="flex flex-col md:flex-row items-center gap-0.5 md:gap-2">
-                                                        <span className="text-[10px] md:text-base uppercase tracking-tight text-white whitespace-nowrap">Team {idx + 1}</span>
-                                                        <span className="text-[8px] md:text-[10px] bg-black/20 px-1.5 py-0.5 rounded-full font-black text-white whitespace-nowrap">{team.scoreSum} pts</span>
-                                                    </div>
-                                                    <span className="text-[8px] md:text-[10px] font-bold opacity-80 uppercase text-white mt-1 md:mt-0">{team.members.length} 명</span>
-                                                </div>
+                                            <div key={idx} ref={el => teamRefs.current[idx] = el} className="team-card bg-white rounded-2xl md:rounded-[32px] shadow-lg md:shadow-xl overflow-hidden border border-slate-100 text-left h-full flex flex-col" data-team-idx={idx} onDragOver={(e) => {e.preventDefault(); handleDragOver(e, idx, null);}} onDrop={(e) => {e.preventDefault(); handleDrop(e, idx, null);}} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
+                                                <div className={`p-2 md:p-4 text-center font-black text-white flex flex-col md:flex-row justify-between items-center px-2 md:px-6 ${idx === 0 ? 'bg-rose-500' : idx === 1 ? 'bg-blue-500' : idx === 2 ? 'bg-emerald-600' : idx === 3 ? 'bg-orange-500' : 'bg-violet-600'}`}><div className="flex flex-col md:flex-row items-center gap-0.5 md:gap-2"><span className="text-[10px] md:text-base uppercase tracking-tight text-white whitespace-nowrap">Team {idx + 1}</span><span className="text-[8px] md:text-[10px] bg-black/20 px-1.5 py-0.5 rounded-full font-black text-white whitespace-nowrap">{team.scoreSum} pts</span></div><span className="text-[8px] md:text-[10px] font-bold opacity-80 uppercase text-white mt-1 md:mt-0">{team.members.length} 명</span></div>
                                                 <div className="p-1.5 md:p-4 space-y-1 md:space-y-2 text-left min-h-[100px] flex-grow">
                                                     {team.members.map((m, mIdx) => {
                                                         const isPartnerPresent = m.coupleId && selectedList.some(p => p.memberId === m.coupleId);
                                                         const isDragging = draggedItem?.teamIdx === idx && draggedItem?.memberIdx === mIdx;
                                                         const isDragTarget = dragOverItem?.teamIdx === idx && dragOverItem?.memberIdx === mIdx;
-
                                                         return (
-                                                            <div 
-                                                                key={mIdx}
-                                                                data-team-idx={idx}
-                                                                data-member-idx={mIdx}
-                                                                draggable
-                                                                onDragStart={(e) => handleDragStart(e, idx, mIdx)}
-                                                                onDragOver={(e) => {
-                                                                    e.preventDefault();
-                                                                    e.stopPropagation(); 
-                                                                    handleDragOver(e, idx, mIdx);
-                                                                }}
-                                                                onDragEnd={handleDragEnd}
-                                                                onDrop={(e) => {
-                                                                    e.stopPropagation(); 
-                                                                    handleDrop(e, idx, mIdx);
-                                                                }}
-                                                                onTouchStart={(e) => handleTouchStart(e, idx, mIdx, m)}
-                                                                // Prevent Context Menu on Long Press
-                                                                onContextMenu={handleContextMenu}
-                                                                // Move/End handlers are on container for broader hit area, but can propagate
-                                                                className={`relative transition-all duration-200 touch-action-none ${isDragging ? 'dragging' : ''} ${isDragTarget ? 'pt-12' : ''}`}
-                                                            >
-                                                                {isDragTarget && (
-                                                                    <div className="absolute top-0 left-0 right-0 h-10 border-2 border-dashed border-blue-400 bg-blue-50/50 rounded-xl flex items-center justify-center pointer-events-none transform -translate-y-1">
-                                                                        <span className="text-blue-500 font-bold text-xs">이 위치로 이동</span>
-                                                                    </div>
-                                                                )}
-
+                                                            <div key={mIdx} data-team-idx={idx} data-member-idx={mIdx} draggable onDragStart={(e) => handleDragStart(e, idx, mIdx)} onDragOver={(e) => {e.preventDefault(); e.stopPropagation(); handleDragOver(e, idx, mIdx);}} onDragEnd={handleDragEnd} onDrop={(e) => {e.stopPropagation(); handleDrop(e, idx, mIdx);}} onTouchStart={(e) => handleTouchStart(e, idx, mIdx, m)} onContextMenu={handleContextMenu} className={`relative transition-all duration-200 touch-action-none ${isDragging ? 'dragging' : ''} ${isDragTarget ? 'pt-12' : ''}`}>
+                                                                {isDragTarget && <div className="absolute top-0 left-0 right-0 h-10 border-2 border-dashed border-blue-400 bg-blue-50/50 rounded-xl flex items-center justify-center pointer-events-none transform -translate-y-1"><span className="text-blue-500 font-bold text-xs">이 위치로 이동</span></div>}
                                                                 <div className={`flex items-center justify-between p-1.5 md:p-3 bg-slate-50 rounded-lg md:rounded-2xl transition-all shadow-sm border border-slate-100/50 md:border-transparent cursor-move select-none ${!isDragging ? 'hover:bg-blue-50 hover:border-blue-300 hover:shadow-md hover:scale-[1.02] hover:z-10 relative' : ''}`}>
-                                                                    <div className="flex items-center gap-1.5 md:gap-3 text-left overflow-hidden">
-                                                                        {/* 3번, 6번 자리 색상 강조 제거 -> 모든 순번 동일한 회색 스타일 적용 */}
-                                                                        <span className="w-4 h-4 md:w-6 md:h-6 flex items-center justify-center rounded-full text-[8px] md:text-[9px] font-black flex-shrink-0 bg-slate-200 text-slate-500">{mIdx + 1}</span>
-                                                                        <div className="flex flex-col text-left overflow-hidden">
-                                                                            <div className="flex items-center gap-1 text-left text-slate-900 leading-none">
-                                                                                <span className="font-black text-slate-800 text-[10px] md:text-sm truncate">{m.name}</span>
-                                                                                {m.gender === '여성' && <span className="text-[8px] md:text-[9px] font-black px-1 py-0.5 bg-pink-100 text-pink-600 rounded flex-shrink-0">W</span>}
-                                                                                {isPartnerPresent && <span className="text-pink-400 text-[8px] md:text-[10px] flex-shrink-0"><Icon.Heart /></span>}
-                                                                                {m.isGuest && <span className="text-[6px] md:text-[8px] font-black bg-blue-100 text-blue-600 px-0.5 md:px-1 rounded-sm flex-shrink-0">G</span>}
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                    <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
-                                                                        <div className="flex flex-col items-end text-slate-900 text-right">
-                                                                            <span className={`text-[8px] md:text-[10px] font-black px-1 md:px-1.5 py-0.5 rounded level-tag inline-flex items-center justify-center min-w-[16px] md:min-w-[20px] ${getLevelColor(m.level)}`}>
-                                                                                {m.level}
-                                                                            </span>
-                                                                        </div>
-                                                                    </div>
+                                                                    <div className="flex items-center gap-1.5 md:gap-3 text-left overflow-hidden"><span className="w-4 h-4 md:w-6 md:h-6 flex items-center justify-center rounded-full text-[8px] md:text-[9px] font-black flex-shrink-0 bg-slate-200 text-slate-500">{mIdx + 1}</span><div className="flex flex-col text-left overflow-hidden"><div className="flex items-center gap-1 text-left text-slate-900 leading-none"><span className="font-black text-slate-800 text-[10px] md:text-sm truncate">{m.name}</span>{m.gender === '여성' && <span className="text-[8px] md:text-[9px] font-black px-1 py-0.5 bg-pink-100 text-pink-600 rounded flex-shrink-0">W</span>}{isPartnerPresent && <span className="text-pink-400 text-[8px] md:text-[10px] flex-shrink-0"><Icon.Heart /></span>}{m.isGuest && <span className="text-[6px] md:text-[8px] font-black bg-blue-100 text-blue-600 px-0.5 md:px-1 rounded-sm flex-shrink-0">G</span>}</div></div></div>
+                                                                    <div className="flex items-center gap-1 md:gap-2 flex-shrink-0"><div className="flex flex-col items-end text-slate-900 text-right"><span className={`text-[8px] md:text-[10px] font-black px-1 md:px-1.5 py-0.5 rounded level-tag inline-flex items-center justify-center min-w-[16px] md:min-w-[20px] ${getLevelColor(m.level)}`}>{m.level}</span></div></div>
                                                                 </div>
                                                             </div>
                                                         );
                                                     })}
-                                                    {/* End of list placeholder */}
-                                                    {dragOverItem?.teamIdx === idx && dragOverItem?.memberIdx === null && (
-                                                        <div className="h-10 border-2 border-dashed border-blue-400 bg-blue-50/50 rounded-xl mt-2 flex items-center justify-center pointer-events-none animate-pulse">
-                                                            <span className="text-blue-500 font-bold text-xs">맨 뒤로 이동</span>
-                                                        </div>
-                                                    )}
+                                                    {dragOverItem?.teamIdx === idx && dragOverItem?.memberIdx === null && <div className="h-10 border-2 border-dashed border-blue-400 bg-blue-50/50 rounded-xl mt-2 flex items-center justify-center pointer-events-none animate-pulse"><span className="text-blue-500 font-bold text-xs">맨 뒤로 이동</span></div>}
                                                 </div>
                                             </div>
                                         ))}
@@ -1204,32 +753,80 @@
 
                     {activeTab === 'drafts' && (
                         <div className="animate-fade-in space-y-4 text-left max-w-3xl mx-auto text-slate-900">
-                            {savedDrafts.length === 0 ? (
+                             <div className="flex gap-2 mb-6">
+                                <button onClick={() => setStorageTab('drafts')} className={`flex-1 py-3 rounded-xl font-black text-xs sm:text-sm transition-all ${storageTab === 'drafts' ? 'bg-blue-600 text-white shadow-lg' : 'bg-white text-slate-400 hover:text-slate-600'}`}>임시 저장 ({savedDrafts.length})</button>
+                                <button onClick={() => setStorageTab('history')} className={`flex-1 py-3 rounded-xl font-black text-xs sm:text-sm transition-all ${storageTab === 'history' ? 'bg-green-600 text-white shadow-lg' : 'bg-white text-slate-400 hover:text-slate-600'}`}>확정 기록 ({confirmedHistory.length})</button>
+                            </div>
+                            
+                            {(storageTab === 'drafts' ? savedDrafts : confirmedHistory).length === 0 ? (
                                 <div className="py-20 text-center text-slate-300 font-black">기록이 없습니다.</div>
-                            ) : savedDrafts.map(draft => (
-                                <div key={draft.id} className="bg-white p-6 rounded-[32px] border border-slate-200 shadow-sm flex items-center justify-between transition-all hover:border-blue-300 text-slate-900">
-                                    <div className="text-left text-slate-900">
-                                        <p className="text-lg font-black">{draft.timeLabel} 편성</p>
-                                        <div className="flex flex-col gap-1 mt-1 text-slate-900 text-left leading-none">
-                                            <div className="flex gap-2 items-center leading-none text-slate-900 text-left">
-                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-left">{draft.meetingDate}</span>
-                                                {draft.meetingTimeRange && (
-                                                    <React.Fragment>
+                            ) : (
+                                <div className="grid gap-4">
+                                    {(storageTab === 'drafts' ? savedDrafts : confirmedHistory).map(item => (
+                                        <div 
+                                            key={item.id} 
+                                            className={`bg-white p-6 rounded-[32px] border shadow-sm flex flex-col sm:flex-row sm:items-center justify-between transition-all gap-4 relative group ${storageTab === 'history' ? 'border-green-100 hover:border-green-300' : 'border-slate-200 hover:border-blue-300'}`}
+                                            // Mobile/iPad: Click to Open Preview Modal
+                                            onClick={() => setPreviewModalData(item)}
+                                        >
+                                            <div className="text-left text-slate-900 pointer-events-none">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <span className="text-lg font-black text-slate-800">{item.meetingDate}</span>
+                                                    {item.timeLabel && <span className="text-[10px] text-slate-400 font-bold bg-slate-50 px-2 py-0.5 rounded-full">{item.timeLabel}</span>}
+                                                    {storageTab === 'history' && <span className="text-[10px] text-green-600 font-black bg-green-50 px-2 py-0.5 rounded-full border border-green-100">CONFIRMED</span>}
+                                                </div>
+                                                <div className="flex flex-col gap-1 text-slate-500 text-left leading-none">
+                                                    <div className="flex gap-2 items-center leading-none text-left">
+                                                        <span className="text-[10px] font-bold text-green-600 uppercase tracking-widest text-left flex items-center gap-1"><Icon.Clock size={10}/> {item.meetingTimeRange}</span>
                                                         <div className="w-px h-2 bg-slate-200 text-left" />
-                                                        <span className="text-[10px] font-bold text-green-600 uppercase tracking-widest text-left">{draft.meetingTimeRange}</span>
-                                                    </React.Fragment>
-                                                )}
-                                                <div className="w-px h-2 bg-slate-200 text-left" />
-                                                <span className="text-[10px] font-bold text-blue-500 uppercase tracking-widest text-left">{draft.teams.length}개 팀</span>
+                                                        <span className="text-[10px] font-bold text-blue-500 uppercase tracking-widest text-left">{item.teams?.length || 0}개 팀</span>
+                                                        {item.managerName && (
+                                                            <>
+                                                                <div className="w-px h-2 bg-slate-200 text-left" />
+                                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-left flex items-center gap-1"><Icon.Shield size={10}/> {item.managerName}</span>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-2 text-left w-full sm:w-auto" onClick={(e) => e.stopPropagation()}>
+                                                <button onClick={() => loadDraft(item)} className={`flex-1 sm:flex-none px-6 py-3 rounded-2xl font-black text-xs transition-all text-center ${storageTab === 'history' ? 'bg-green-50 text-green-600 hover:bg-green-100' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'}`}>불러오기</button>
+                                                <button onClick={() => openDeleteModal(item.id)} className="p-3 text-slate-300 hover:text-red-500 transition-all bg-slate-50 rounded-2xl hover:bg-red-50"><Icon.Trash size={16}/></button>
                                             </div>
                                         </div>
-                                    </div>
-                                    <div className="flex gap-2 text-left">
-                                        <button onClick={() => loadDraft(draft)} className="px-5 py-2.5 bg-blue-50 text-blue-600 rounded-xl font-black text-xs hover:bg-blue-100 transition-all text-left text-blue-600">불러오기</button>
-                                        <button onClick={() => openDeleteModal(draft.id)} className="p-2.5 text-slate-300 hover:text-red-500 transition-all text-left text-slate-300"><Icon.Trash /></button>
-                                    </div>
+                                    ))}
                                 </div>
-                            ))}
+                            )}
+                        </div>
+                    )}
+
+                    {/* Mobile Preview Modal */}
+                    {previewModalData && (
+                        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[9999] flex items-center justify-center p-4" onClick={() => setPreviewModalData(null)}>
+                            <div className="bg-white rounded-[40px] w-full max-w-sm p-8 shadow-2xl animate-zoom-in" onClick={e => e.stopPropagation()}>
+                                <h3 className="text-xl font-black text-slate-900 mb-1">{previewModalData.meetingDate}</h3>
+                                <p className="text-xs text-slate-400 font-bold mb-6">{previewModalData.meetingTimeRange} ({previewModalData.teams.length} Teams)</p>
+                                
+                                <div className="space-y-4 mb-8 max-h-[50vh] overflow-y-auto custom-scrollbar">
+                                    {previewModalData.teams.map((t, idx) => (
+                                        <div key={idx} className="border border-slate-100 rounded-2xl p-3">
+                                            <div className="flex justify-between items-center mb-2">
+                                                <span className={`text-xs font-black px-2 py-0.5 rounded-lg text-white ${idx === 0 ? 'bg-rose-500' : idx === 1 ? 'bg-blue-500' : idx === 2 ? 'bg-emerald-500' : 'bg-orange-500'}`}>Team {idx+1}</span>
+                                                <span className="text-[10px] font-bold text-slate-400">{t.scoreSum}pts</span>
+                                            </div>
+                                            <div className="flex flex-wrap gap-1">
+                                                {t.members.map(m => (
+                                                    <span key={m.name} className="text-[10px] bg-slate-50 px-1.5 py-0.5 rounded text-slate-600 font-bold">{m.name}</span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="flex gap-2">
+                                    <button onClick={() => setPreviewModalData(null)} className="flex-1 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black text-xs">닫기</button>
+                                    <button onClick={() => { loadDraft(previewModalData); setPreviewModalData(null); }} className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black text-xs shadow-lg shadow-blue-100">불러오기</button>
+                                </div>
+                            </div>
                         </div>
                     )}
 
