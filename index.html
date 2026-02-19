@@ -226,7 +226,6 @@
             const [isCapturing, setIsCapturing] = useState(false);
             const [user, setUser] = useState(null);
             
-            // Custom Font State
             const [customFontName, setCustomFontName] = useState('Esamanru'); 
             const [isDraggingFile, setIsDraggingFile] = useState(false);
 
@@ -253,9 +252,11 @@
             const [targetDeleteId, setTargetDeleteId] = useState(null);
             const [isProcessing, setIsProcessing] = useState(false);
             const [previewModalData, setPreviewModalData] = useState(null); 
+            // Web Hover Preview Removed
 
             const teamRefs = useRef([]);
 
+            // 초기 로드 시 LocalStorage 체크 (새로고침 방지)
             useEffect(() => {
                 const savedTeams = localStorage.getItem('otp_confirmed_teams');
                 if (savedTeams) {
@@ -270,6 +271,7 @@
                 }
             }, []);
 
+            // 확정 상태일 때 팀 변경 시 자동 저장 (수정 사항 반영)
             useEffect(() => {
                 if (isConfirmed && teams.length > 0) {
                     localStorage.setItem('otp_confirmed_teams', JSON.stringify({
@@ -338,6 +340,7 @@
                 return () => { document.body.style.overflow = ''; };
             }, [draggedItem]);
 
+            // --- Pull to Refresh Logic ---
             useEffect(() => {
                 const handleStart = (e) => {
                     if (window.scrollY <= 10 && !draggedItem) { 
@@ -389,7 +392,7 @@
                     });
             }, [sessionData, meetingDate]);
 
-            // [수정] maxMemberLimit 기반으로 Entry / Waiting 분리
+            // [수정] maxMemberLimit 기반으로 Entry / Waiting 분리 (팀 수와 무관)
             const entryList = useMemo(() => allAttendees.slice(0, maxMemberLimit), [allAttendees, maxMemberLimit]);
             const waitingList = useMemo(() => allAttendees.slice(maxMemberLimit), [allAttendees, maxMemberLimit]);
 
@@ -775,6 +778,7 @@
                                         <div 
                                             key={item.id} 
                                             className={`bg-white p-6 rounded-[32px] border shadow-sm flex flex-col sm:flex-row sm:items-center justify-between transition-all gap-4 relative group ${storageTab === 'history' ? 'border-green-100 hover:border-green-300' : 'border-slate-200 hover:border-blue-300'}`}
+                                            // Mobile/iPad: Click to Open Preview Modal
                                             onClick={() => setPreviewModalData(item)}
                                         >
                                             <div className="text-left text-slate-900 pointer-events-none">
