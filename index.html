@@ -159,21 +159,22 @@
         const db = firebase.firestore();
         const APP_ID = 'otp-fc-attendance';
         const getCol = (name) => db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection(name);
+        const getTeamDraftsCol = () => db.collection('artifacts').doc('otp-fc-attendance').collection('public').doc('data').collection('team_drafts');
 
-        const Icon = {
-            Refresh: ({size=20, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>,
-            Heart: ({size=14, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>,
-            Bookmark: ({size=18, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>,
-            Trash: ({size=18, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>,
-            Camera: ({size=18, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>,
-            Download: ({size=18, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
-            Shield: ({size=16, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
-            Clock: ({size=14, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
-            AlertCircle: ({size=24, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>,
-            Info: ({size=18, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>,
-            Settings: ({size=18, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>,
-            Upload: ({size=24, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>,
-            Check: ({size=14, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="20 6 9 17 4 12"/></svg>
+        // --- Helper Functions ---
+        // [수정] 레벨별 점수 격차 확대 (1티어의 중요도 대폭 상향)
+        const getLevelPoints = (level) => {
+            const l = parseInt(level);
+            const n = l > 6 ? l - 6 : l; 
+            switch(n) {
+                case 1: return 15;   // 1티어 (압도적 가중치)
+                case 2: return 11;   // 2티어
+                case 3: return 8;    // 3티어
+                case 4: return 5;
+                case 5: return 3;
+                case 6: return 1;
+                default: return 1;
+            }
         };
 
         const getLevelColor = (level) => {
@@ -190,12 +191,11 @@
             }
         };
 
-        const getLevelPoints = (level) => {
-            const l = parseInt(level);
-            const standardLvl = l > 6 ? l - 6 : l;
-            return Math.max(1, 7 - standardLvl); 
-        };
-
+        const getTeamName = (index) => String.fromCharCode(65 + index);
+        const getTeamBadgeColor = (index) => ['bg-red-500 text-white', 'bg-blue-500 text-white', 'bg-green-500 text-white', 'bg-yellow-500 text-white', 'bg-purple-500 text-white', 'bg-orange-500 text-white'][index] || 'bg-slate-500 text-white';
+        const getTeamColorClass = (index) => ['bg-red-50 border-red-200 text-red-900', 'bg-blue-50 border-blue-200 text-blue-900', 'bg-green-50 border-green-200 text-green-900', 'bg-yellow-50 border-yellow-200 text-yellow-900', 'bg-purple-50 border-purple-200 text-purple-900', 'bg-orange-50 border-orange-200 text-orange-900'][index] || 'bg-slate-50 border-slate-200 text-slate-900';
+        const getTeamNumberColor = (index) => ['text-red-500', 'text-blue-500', 'text-green-500', 'text-yellow-500', 'text-purple-500', 'text-orange-500'][index] || 'text-slate-300';
+        
         const shuffleArray = (array) => {
             const arr = [...array];
             for (let i = arr.length - 1; i > 0; i--) {
@@ -203,6 +203,24 @@
                 [arr[i], arr[j]] = [arr[j], arr[i]];
             }
             return arr;
+        };
+
+        const Icon = {
+            Refresh: ({size=20, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>,
+            Heart: ({size=14, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>,
+            Bookmark: ({size=18, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>,
+            Trash: ({size=18, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>,
+            Camera: ({size=18, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>,
+            Download: ({size=18, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
+            Shield: ({size=16, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
+            Clock: ({size=14, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
+            AlertCircle: ({size=24, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>,
+            Info: ({size=18, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>,
+            Settings: ({size=18, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>,
+            Upload: ({size=24, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>,
+            Check: ({size=14, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="20 6 9 17 4 12"/></svg>,
+            Folder: ({size=18, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>,
+            RotateCcw: ({size=18, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
         };
 
         function App() {
@@ -225,7 +243,6 @@
             const [isCapturing, setIsCapturing] = useState(false);
             const [user, setUser] = useState(null);
             
-            // Custom Font State
             const [customFontName, setCustomFontName] = useState('Esamanru'); 
             const [isDraggingFile, setIsDraggingFile] = useState(false);
 
@@ -310,23 +327,19 @@
                         setMeetingTime({ start: data.start || "", end: data.end || "" });
                         setSyncManagerName(data.managerName || "");
                         
-                        // [중요] 실시간 인원 연동: maxLimit 필드를 우선 사용, 없으면 maxMemberCount 사용
                         const newLimit = data.maxLimit ? parseInt(data.maxLimit) : (data.maxMemberCount ? parseInt(data.maxMemberCount) : 18);
                         setMaxMemberLimit(newLimit);
 
-                        // 인원수에 맞춰 적절한 팀 개수 자동 설정 (6명당 1팀 기준)
                         const suggestedTeams = Math.max(2, Math.round(newLimit / 6));
                         setTeamingSettings(prev => ({ ...prev, teamCount: suggestedTeams }));
                     }
                 });
                 
-                // 팀 저장소 (Drafts & History 통합)
                 const unsubDrafts = getCol('team_drafts').onSnapshot(snap => {
                     const allData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                     
-                    // 임시저장과 확정 기록 분리
                     const drafts = allData.filter(d => !d.isConfirmed).sort((a,b) => b.createdAt.localeCompare(a.createdAt));
-                    const histories = allData.filter(d => d.isConfirmed).sort((a,b) => b.meetingDate.localeCompare(a.meetingDate)); // 날짜 역순
+                    const histories = allData.filter(d => d.isConfirmed).sort((a,b) => b.meetingDate.localeCompare(a.meetingDate));
                     
                     setSavedDrafts(drafts);
                     setConfirmedHistory(histories);
@@ -383,7 +396,6 @@
                 };
             }, [draggedItem]);
 
-            // 모든 참석자 목록 (시간순 정렬)
             const allAttendees = useMemo(() => {
                 if (!meetingDate) return [];
                 return sessionData
@@ -452,64 +464,102 @@
                 const { teamCount, keepCouples } = teamingSettings;
                 const totalAttendees = selectedList.length;
                 if (totalAttendees < teamCount) return;
+                
                 localStorage.removeItem('otp_confirmed_teams');
                 setIsConfirmed(false);
+
+                // 1. Prepare Pool
                 let pool = selectedList.map(p => {
                     const masterInfo = members.find(m => m.id === p.memberId) || {};
                     const lvl = parseInt(masterInfo.level || p.level || 99);
-                    return { ...p, name: masterInfo.name || p.name, level: lvl, points: getLevelPoints(lvl), coupleId: masterInfo.coupleId || '', gender: masterInfo.gender || p.gender || '남성', isGuest: p.isGuest || false };
+                    return { 
+                        ...p, 
+                        name: masterInfo.name || p.name, 
+                        level: lvl, 
+                        points: getLevelPoints(lvl), 
+                        coupleId: masterInfo.coupleId || '', 
+                        gender: masterInfo.gender || p.gender || '남성', 
+                        isGuest: p.isGuest || false 
+                    };
                 });
+                
+                // 2. Form Units (Handle Couples)
                 let units = [];
                 let processedIds = new Set();
+                
                 if (keepCouples) {
                     pool.forEach(p => {
                         if (!processedIds.has(p.id)) {
                             if (p.coupleId) {
                                 const partner = pool.find(o => o.memberId === p.coupleId && !processedIds.has(o.id));
                                 if (partner) {
-                                    units.push({ members: [p, partner], totalPoints: p.points + partner.points, hasFemale: p.gender === '여성' || partner.gender === '여성', isTopMale: p.level === 1 || partner.level === 1, isTopFemale: p.level === 7 || partner.level === 7, avgSkill: (p.points + partner.points) / 2 });
+                                    units.push({
+                                        members: [p, partner],
+                                        totalPoints: p.points + partner.points,
+                                        avgPoints: (p.points + partner.points) / 2,
+                                        maxMemberPoints: Math.max(p.points, partner.points),
+                                        isCouple: true
+                                    });
                                     processedIds.add(p.id); processedIds.add(partner.id);
                                     return;
                                 }
                             }
-                            units.push({ members: [p], totalPoints: p.points, hasFemale: p.gender === '여성', isTopMale: p.level === 1, isTopFemale: p.level === 7, avgSkill: p.points });
+                            units.push({ members: [p], totalPoints: p.points, avgPoints: p.points, maxMemberPoints: p.points, isCouple: false });
                             processedIds.add(p.id);
                         }
                     });
                 } else {
-                    units = pool.map(p => ({ members: [p], totalPoints: p.points, hasFemale: p.gender === '여성', isTopMale: p.level === 1, isTopFemale: p.level === 7, avgSkill: p.points }));
+                    units = pool.map(p => ({ members: [p], totalPoints: p.points, avgPoints: p.points, maxMemberPoints: p.points, isCouple: false }));
                 }
-                const baseSize = Math.floor(totalAttendees / teamCount);
-                const teamsWithExtra = totalAttendees % teamCount;
-                const resultTeams = Array.from({ length: teamCount }, (_, i) => ({ members: [], scoreSum: 0, targetSize: baseSize + (i < teamsWithExtra ? 1 : 0), hasTopMale: false, hasTopFemale: false }));
-                let unitsToAssign = shuffleArray(shuffleArray(units));
-                const topMaleUnit = unitsToAssign.find(u => u.isTopMale);
-                const topFemaleUnit = unitsToAssign.find(u => u.isTopFemale);
-                if (topMaleUnit && topFemaleUnit && teamCount >= 2) {
-                    const randomIndices = shuffleArray(Array.from({length: teamCount}, (_, i) => i));
-                    resultTeams[randomIndices[0]].members.push(...topMaleUnit.members); resultTeams[randomIndices[0]].scoreSum += topMaleUnit.totalPoints; resultTeams[randomIndices[0]].hasTopMale = true;
-                    resultTeams[randomIndices[1]].members.push(...topFemaleUnit.members); resultTeams[randomIndices[1]].scoreSum += topFemaleUnit.totalPoints; resultTeams[randomIndices[1]].hasTopFemale = true;
-                    unitsToAssign = unitsToAssign.filter(u => u !== topMaleUnit && u !== topFemaleUnit);
-                }
-                const assignByBalancedRandom = (unitList, isFemalePriority = false) => {
-                    const sorted = shuffleArray(unitList).sort((a, b) => b.avgSkill - a.avgSkill || Math.random() - 0.5);
-                    sorted.forEach(unit => {
-                        let candidates = resultTeams.map((team, idx) => ({ idx, fCount: team.members.filter(m => m.gender === '여성').length, tCount: team.members.length, score: team.scoreSum, target: team.targetSize, hasTopMale: team.hasTopMale })).filter(t => t.tCount + unit.members.length <= t.target);
-                        if (unit.isTopFemale) candidates = candidates.filter(c => !c.hasTopMale);
-                        if (unit.isTopMale) candidates = candidates.filter(c => !resultTeams[c.idx].hasTopFemale);
-                        let targetIdx = -1;
-                        if (candidates.length > 0) {
-                            const sortedCandidates = candidates.sort((a, b) => { if (Math.abs(a.score - b.score) < 0.5) return Math.random() - 0.5; if (isFemalePriority && unit.hasFemale) { return (a.fCount - b.fCount) || (a.score - b.score); } return (a.score - b.score) || (a.tCount - b.tCount); });
-                            targetIdx = sortedCandidates[0].idx;
-                        } else { targetIdx = resultTeams.findIndex(t => t.members.length < t.targetSize); }
-                        resultTeams[targetIdx].members.push(...unit.members); resultTeams[targetIdx].scoreSum += unit.totalPoints;
-                        if (unit.isTopMale) resultTeams[targetIdx].hasTopMale = true; if (unit.isTopFemale) resultTeams[targetIdx].hasTopFemale = true;
+
+                // 3. Sort Units for Draft (Prioritize Strongest Units)
+                units = shuffleArray(units);
+                units.sort((a, b) => b.totalPoints - a.totalPoints);
+
+                // 4. Initialize Teams
+                // Calculate strict capacity per team to ensure equal distribution
+                const baseCapacity = Math.floor(totalAttendees / teamCount);
+                const remainder = totalAttendees % teamCount;
+                const resultTeams = Array.from({ length: teamCount }, (_, i) => ({ 
+                    id: i,
+                    members: [], 
+                    scoreSum: 0, 
+                    capacity: baseCapacity + (i < remainder ? 1 : 0)
+                }));
+
+                // 5. Draft Logic: Dynamic Lowest Score First (with Capacity Check)
+                units.forEach(unit => {
+                    const required = unit.members.length;
+                    
+                    // Filter candidates: Must have capacity
+                    let candidates = resultTeams.filter(t => t.members.length + required <= t.capacity);
+                    
+                    // Fallback (Edge Case for Couples): If no team has exact capacity space, allow any team (slight imbalance allowed for couples)
+                    if (candidates.length === 0) candidates = resultTeams;
+
+                    // Sort candidates: Lowest Score First -> Random
+                    candidates.sort((a, b) => {
+                        if (a.scoreSum !== b.scoreSum) return a.scoreSum - b.scoreSum;
+                        return Math.random() - 0.5;
                     });
-                };
-                assignByBalancedRandom(unitsToAssign.filter(u => u.hasFemale), true);
-                assignByBalancedRandom(unitsToAssign.filter(u => !u.hasFemale), false);
-                const finalTeams = resultTeams.map(t => { t.members.sort((a, b) => a.level - b.level); const reordered = reorderMembersWithGenderRule(t.members); return { members: reordered, scoreSum: Math.round(t.scoreSum * 10) / 10 }; });
-                setTeams(finalTeams); setActiveTab('results');
+
+                    // Assign to the weakest team
+                    const target = candidates[0];
+                    target.members.push(...unit.members);
+                    target.scoreSum += unit.totalPoints;
+                });
+
+                // 7. Final Sort (Display Order)
+                resultTeams.sort((a, b) => a.id - b.id);
+                
+                const finalTeams = resultTeams.map(t => {
+                    t.members.sort((a, b) => a.level - b.level);
+                    const reordered = reorderMembersWithGenderRule(t.members);
+                    return { members: reordered, scoreSum: Math.round(t.scoreSum * 10) / 10 };
+                });
+
+                setTeams(finalTeams);
+                setActiveTab('results');
             };
 
             const confirmTeams = async () => {
@@ -578,6 +628,7 @@
             const handleDragEnd = () => { setDraggedItem(null); setDragOverItem(null); };
             const handleDrop = (e, targetTeamIdx, targetMemberIdx) => { e.preventDefault(); setDragOverItem(null); if (!draggedItem) return; moveItem(draggedItem.teamIdx, draggedItem.memberIdx, targetTeamIdx, targetMemberIdx); setDraggedItem(null); };
 
+            // Mobile Touch Handlers - Improved for iPad/Mobile Stability
             const handleTouchStart = (e, teamIdx, memberIdx, memberData) => {
                 if (!e.touches || e.touches.length === 0) return;
                 const touch = e.touches[0];
@@ -585,6 +636,7 @@
                 isScrollingRef.current = false;
                 if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
                 longPressTimerRef.current = setTimeout(() => {
+                    // 스크롤 중이 아니라면 드래그 모드 진입
                     if (!isScrollingRef.current) {
                         if (navigator.vibrate) navigator.vibrate(50);
                         setDraggedItem({ teamIdx, memberIdx });
@@ -592,9 +644,11 @@
                     }
                 }, 500);
             };
+
             const handleTouchMove = (e) => {
                 if (!e.touches || e.touches.length === 0) return;
                 const touch = e.touches[0];
+
                 if (draggedItem) {
                     if (e.cancelable) e.preventDefault(); 
                     if (ghostCardRef.current) { ghostCardRef.current.style.left = `${touch.clientX}px`; ghostCardRef.current.style.top = `${touch.clientY}px`; }
@@ -605,8 +659,12 @@
                         else if (teamEl) { const tIdx = parseInt(teamEl.dataset.teamIdx); if (dragOverItem?.teamIdx !== tIdx || dragOverItem?.memberIdx !== null) { setDragOverItem({ teamIdx: tIdx, memberIdx: null }); } }
                     }
                 } else {
-                    const moveX = Math.abs(touch.clientX - touchStartPos.current.x); const moveY = Math.abs(touch.clientY - touchStartPos.current.y);
-                    if (moveX > 10 || moveY > 10) { isScrollingRef.current = true; if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null; } }
+                    const moveX = Math.abs(touch.clientX - touchStartPos.current.x); 
+                    const moveY = Math.abs(touch.clientY - touchStartPos.current.y);
+                    if (moveX > 10 || moveY > 10) { 
+                        isScrollingRef.current = true; 
+                        if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null; } 
+                    }
                 }
             };
             const handleTouchEnd = (e) => {
@@ -705,7 +763,7 @@
                                     <div className="flex flex-col gap-2 text-left text-slate-900"><label className="text-[10px] font-black text-slate-400 ml-1 uppercase text-left">Team Count</label><select className="p-4 bg-slate-50 rounded-2xl font-black text-lg text-left" value={teamingSettings.teamCount} onChange={e => setTeamingSettings({...teamingSettings, teamCount: parseInt(e.target.value)})}>{[2,3,4,5,6].map(v => <option key={v} value={v}>{v}개 팀 균등 편성</option>)}</select></div>
                                     <div className="flex items-end"><label className="w-full flex items-center justify-between p-4 bg-slate-50 rounded-2xl border-2 border-transparent hover:border-blue-100 transition-all cursor-pointer"><span className="text-xs font-black text-slate-600">커플 무조건 동반 배정</span><input type="checkbox" checked={teamingSettings.keepCouples} onChange={e => setTeamingSettings({...teamingSettings, keepCouples: e.target.checked})} className="w-6 h-6 accent-blue-600 rounded" /></label></div>
                                 </div>
-                                <div className="p-5 bg-blue-50 border border-blue-100 rounded-3xl mb-8"><h4 className="text-xs font-black text-blue-600 uppercase mb-2 flex items-center gap-1.5"><Icon.Info /> Smart Balancing Engine</h4><ul className="text-[11px] text-slate-600 font-bold space-y-1.5 text-left"><li>• 1단 남성과 7단 여성은 어떤 경우에도 무조건 다른 팀으로 먼저 분리됩니다.</li><li>• 총 인원을 팀 수로 나눈 수치를 수학적으로 엄격히 준수합니다.</li><li>• 결과 고착화를 방지하기 위해 배정 순서와 후보 팀 선택에 랜덤 노이즈를 부여합니다.</li></ul></div>
+                                <div className="p-5 bg-blue-50 border border-blue-100 rounded-3xl mb-8"><h4 className="text-xs font-black text-blue-600 uppercase mb-2 flex items-center gap-1.5"><Icon.Info /> Smart Balancing Engine</h4><ul className="text-[11px] text-slate-600 font-bold space-y-1.5 text-left"><li>• 개인 기량(티어)을 최우선으로 고려하여 강팀 쏠림 현상을 방지합니다.</li><li>• 1티어 선수가 없는 팀에 차상위 실력자를 우선 배정하여 전력을 보강합니다.</li><li>• 각 팀의 총 인원수를 균등하게 맞춥니다.</li></ul></div>
                                 <button onClick={generateTeams} className="w-full py-5 bg-blue-600 text-white rounded-[24px] font-black text-lg shadow-xl shadow-blue-100 hover:bg-blue-700 transition-all">편성 시작</button>
                             </div>
                         </div>
@@ -734,7 +792,7 @@
                                                             <div key={mIdx} data-team-idx={idx} data-member-idx={mIdx} draggable onDragStart={(e) => handleDragStart(e, idx, mIdx)} onDragOver={(e) => {e.preventDefault(); e.stopPropagation(); handleDragOver(e, idx, mIdx);}} onDragEnd={handleDragEnd} onDrop={(e) => {e.stopPropagation(); handleDrop(e, idx, mIdx);}} onTouchStart={(e) => handleTouchStart(e, idx, mIdx, m)} onContextMenu={handleContextMenu} className={`relative transition-all duration-200 touch-action-none ${isDragging ? 'dragging' : ''} ${isDragTarget ? 'pt-12' : ''}`}>
                                                                 {isDragTarget && <div className="absolute top-0 left-0 right-0 h-10 border-2 border-dashed border-blue-400 bg-blue-50/50 rounded-xl flex items-center justify-center pointer-events-none transform -translate-y-1"><span className="text-blue-500 font-bold text-xs">이 위치로 이동</span></div>}
                                                                 <div className={`flex items-center justify-between p-1.5 md:p-3 bg-slate-50 rounded-lg md:rounded-2xl transition-all shadow-sm border border-slate-100/50 md:border-transparent cursor-move select-none ${!isDragging ? 'hover:bg-blue-50 hover:border-blue-300 hover:shadow-md hover:scale-[1.02] hover:z-10 relative' : ''}`}>
-                                                                    <div className="flex items-center gap-1.5 md:gap-3 text-left overflow-hidden"><span className="w-4 h-4 md:w-6 md:h-6 flex items-center justify-center rounded-full text-[8px] md:text-[9px] font-black flex-shrink-0 bg-slate-200 text-slate-500">{mIdx + 1}</span><div className="flex flex-col text-left overflow-hidden"><div className="flex items-center gap-1 text-left text-slate-900 leading-none"><span className="font-black text-slate-800 text-[10px] md:text-sm truncate">{m.name}</span>{m.gender === '여성' && <span className="text-[8px] md:text-[9px] font-black px-1 py-0.5 bg-pink-100 text-pink-600 rounded flex-shrink-0">W</span>}{isPartnerPresent && <span className="text-pink-400 text-[8px] md:text-[10px] flex-shrink-0"><Icon.Heart /></span>}{m.isGuest && <span className="text-[6px] md:text-[8px] font-black bg-blue-100 text-blue-600 px-0.5 md:px-1 rounded-sm flex-shrink-0">G</span>}</div></div></div>
+                                                                    <div className="flex items-center gap-1.5 md:gap-3 text-left overflow-hidden"><span className="w-4 h-4 md:w-6 md:h-6 flex items-center justify-center rounded-full text-[8px] md:text-[9px] font-black flex-shrink-0 bg-slate-200 text-slate-500">{mIdx + 1}</span><div className="flex flex-col text-left overflow-hidden"><div className="flex items-center gap-1 text-left text-slate-900 leading-none"><span className="font-black text-slate-800 text-[10px] md:text-sm truncate">{m.name}</span>{m.gender === '여성' && <span className="text-[8px] md:text-[9px] font-black px-1 py-0.5 bg-pink-100 text-pink-600 rounded flex-shrink-0">W</span>}{isPartnerPresent && <span className="text-pink-400 text-[8px] md:text-[10px] flex-shrink-0"><Icon.Heart /></span>}{m.isGuest && <span className="text-[6px] md:text-[8px] font-black bg-blue-100 text-blue-600 px-0.5 rounded-sm flex-shrink-0">G</span>}</div></div></div>
                                                                     <div className="flex items-center gap-1 md:gap-2 flex-shrink-0"><div className="flex flex-col items-end text-slate-900 text-right"><span className={`text-[8px] md:text-[10px] font-black px-1 md:px-1.5 py-0.5 rounded level-tag inline-flex items-center justify-center min-w-[16px] md:min-w-[20px] ${getLevelColor(m.level)}`}>{m.level}</span></div></div>
                                                                 </div>
                                                             </div>
@@ -780,7 +838,6 @@
                                         <div 
                                             key={item.id} 
                                             className={`bg-white p-6 rounded-[32px] border shadow-sm flex flex-col sm:flex-row sm:items-center justify-between transition-all gap-4 relative group ${storageTab === 'history' ? 'border-green-100 hover:border-green-300' : 'border-slate-200 hover:border-blue-300'}`}
-                                            // Mobile/iPad: Click to Open Preview Modal
                                             onClick={() => setPreviewModalData(item)}
                                         >
                                             <div className="text-left text-slate-900 pointer-events-none">
