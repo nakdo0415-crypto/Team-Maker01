@@ -162,12 +162,12 @@
         const getTeamDraftsCol = () => db.collection('artifacts').doc('otp-fc-attendance').collection('public').doc('data').collection('team_drafts');
 
         // --- Helper Functions ---
-        // [수정] 레벨별 점수 격차 확대 (1티어의 중요도 대폭 상향)
+        // [수정] 레벨별 점수 격차 확대 (밸런싱 강화)
         const getLevelPoints = (level) => {
             const l = parseInt(level);
             const n = l > 6 ? l - 6 : l; 
             switch(n) {
-                case 1: return 15;   // 1티어 (압도적 가중치)
+                case 1: return 15;   // 1티어
                 case 2: return 11;   // 2티어
                 case 3: return 8;    // 3티어
                 case 4: return 5;
@@ -205,6 +205,7 @@
             return arr;
         };
 
+        // Icons - Fixed Refresh duplication
         const Icon = {
             Refresh: ({size=20, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>,
             Heart: ({size=14, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>,
@@ -496,7 +497,6 @@
                                     units.push({
                                         members: [p, partner],
                                         totalPoints: p.points + partner.points,
-                                        avgPoints: (p.points + partner.points) / 2,
                                         maxMemberPoints: Math.max(p.points, partner.points),
                                         isCouple: true
                                     });
@@ -504,20 +504,26 @@
                                     return;
                                 }
                             }
-                            units.push({ members: [p], totalPoints: p.points, avgPoints: p.points, maxMemberPoints: p.points, isCouple: false });
+                            units.push({ members: [p], totalPoints: p.points, maxMemberPoints: p.points, isCouple: false });
                             processedIds.add(p.id);
                         }
                     });
                 } else {
-                    units = pool.map(p => ({ members: [p], totalPoints: p.points, avgPoints: p.points, maxMemberPoints: p.points, isCouple: false }));
+                    units = pool.map(p => ({ members: [p], totalPoints: p.points, maxMemberPoints: p.points, isCouple: false }));
                 }
 
                 // 3. Sort Units for Draft (Prioritize Strongest Units)
                 units = shuffleArray(units);
-                units.sort((a, b) => b.totalPoints - a.totalPoints);
+                units.sort((a, b) => {
+                    // 개인 기량이 더 뛰어난 선수가 포함된 그룹을 먼저 배정 (티어 안배)
+                    if (b.maxMemberPoints !== a.maxMemberPoints) {
+                        return b.maxMemberPoints - a.maxMemberPoints;
+                    }
+                    // 그 다음 총점이 높은 순
+                    return b.totalPoints - a.totalPoints;
+                });
 
                 // 4. Initialize Teams
-                // Calculate strict capacity per team to ensure equal distribution
                 const baseCapacity = Math.floor(totalAttendees / teamCount);
                 const remainder = totalAttendees % teamCount;
                 const resultTeams = Array.from({ length: teamCount }, (_, i) => ({ 
@@ -534,12 +540,12 @@
                     // Filter candidates: Must have capacity
                     let candidates = resultTeams.filter(t => t.members.length + required <= t.capacity);
                     
-                    // Fallback (Edge Case for Couples): If no team has exact capacity space, allow any team (slight imbalance allowed for couples)
                     if (candidates.length === 0) candidates = resultTeams;
 
                     // Sort candidates: Lowest Score First -> Random
                     candidates.sort((a, b) => {
                         if (a.scoreSum !== b.scoreSum) return a.scoreSum - b.scoreSum;
+                        if (a.members.length !== b.members.length) return a.members.length - b.members.length;
                         return Math.random() - 0.5;
                     });
 
@@ -548,6 +554,58 @@
                     target.members.push(...unit.members);
                     target.scoreSum += unit.totalPoints;
                 });
+
+                // 6. Post-Draft Optimization (Hill Climbing / Swapping)
+                const optimizeTeams = () => {
+                    let improved = true;
+                    let iterations = 0;
+                    while (improved && iterations < 100) {
+                        improved = false;
+                        iterations++;
+
+                        resultTeams.sort((a, b) => b.scoreSum - a.scoreSum);
+                        const strongTeam = resultTeams[0];
+                        const weakTeam = resultTeams[resultTeams.length - 1];
+
+                        const scoreDiff = strongTeam.scoreSum - weakTeam.scoreSum;
+                        if (scoreDiff <= 1) break; 
+
+                        let bestSwap = null;
+                        let bestNewDiff = scoreDiff;
+
+                        for (let i = 0; i < strongTeam.members.length; i++) {
+                            for (let j = 0; j < weakTeam.members.length; j++) {
+                                const m1 = strongTeam.members[i];
+                                const m2 = weakTeam.members[j];
+
+                                if (keepCouples && (m1.coupleId || m2.coupleId)) continue; 
+
+                                const newStrongScore = strongTeam.scoreSum - m1.points + m2.points;
+                                const newWeakScore = weakTeam.scoreSum - m2.points + m1.points;
+                                const newDiff = Math.abs(newStrongScore - newWeakScore);
+
+                                if (newDiff < bestNewDiff) {
+                                    bestNewDiff = newDiff;
+                                    bestSwap = { strongIdx: i, weakIdx: j };
+                                }
+                            }
+                        }
+
+                        if (bestSwap) {
+                            const m1 = strongTeam.members[bestSwap.strongIdx];
+                            const m2 = weakTeam.members[bestSwap.weakIdx];
+
+                            strongTeam.members[bestSwap.strongIdx] = m2;
+                            weakTeam.members[bestSwap.weakIdx] = m1;
+
+                            strongTeam.scoreSum = strongTeam.scoreSum - m1.points + m2.points;
+                            weakTeam.scoreSum = weakTeam.scoreSum - m2.points + m1.points;
+                            improved = true;
+                        }
+                    }
+                };
+                
+                optimizeTeams();
 
                 // 7. Final Sort (Display Order)
                 resultTeams.sort((a, b) => a.id - b.id);
@@ -628,7 +686,6 @@
             const handleDragEnd = () => { setDraggedItem(null); setDragOverItem(null); };
             const handleDrop = (e, targetTeamIdx, targetMemberIdx) => { e.preventDefault(); setDragOverItem(null); if (!draggedItem) return; moveItem(draggedItem.teamIdx, draggedItem.memberIdx, targetTeamIdx, targetMemberIdx); setDraggedItem(null); };
 
-            // Mobile Touch Handlers - Improved for iPad/Mobile Stability
             const handleTouchStart = (e, teamIdx, memberIdx, memberData) => {
                 if (!e.touches || e.touches.length === 0) return;
                 const touch = e.touches[0];
@@ -636,7 +693,6 @@
                 isScrollingRef.current = false;
                 if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
                 longPressTimerRef.current = setTimeout(() => {
-                    // 스크롤 중이 아니라면 드래그 모드 진입
                     if (!isScrollingRef.current) {
                         if (navigator.vibrate) navigator.vibrate(50);
                         setDraggedItem({ teamIdx, memberIdx });
@@ -644,11 +700,9 @@
                     }
                 }, 500);
             };
-
             const handleTouchMove = (e) => {
                 if (!e.touches || e.touches.length === 0) return;
                 const touch = e.touches[0];
-
                 if (draggedItem) {
                     if (e.cancelable) e.preventDefault(); 
                     if (ghostCardRef.current) { ghostCardRef.current.style.left = `${touch.clientX}px`; ghostCardRef.current.style.top = `${touch.clientY}px`; }
@@ -659,12 +713,8 @@
                         else if (teamEl) { const tIdx = parseInt(teamEl.dataset.teamIdx); if (dragOverItem?.teamIdx !== tIdx || dragOverItem?.memberIdx !== null) { setDragOverItem({ teamIdx: tIdx, memberIdx: null }); } }
                     }
                 } else {
-                    const moveX = Math.abs(touch.clientX - touchStartPos.current.x); 
-                    const moveY = Math.abs(touch.clientY - touchStartPos.current.y);
-                    if (moveX > 10 || moveY > 10) { 
-                        isScrollingRef.current = true; 
-                        if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null; } 
-                    }
+                    const moveX = Math.abs(touch.clientX - touchStartPos.current.x); const moveY = Math.abs(touch.clientY - touchStartPos.current.y);
+                    if (moveX > 10 || moveY > 10) { isScrollingRef.current = true; if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null; } }
                 }
             };
             const handleTouchEnd = (e) => {
@@ -779,7 +829,7 @@
                             )}
                             {teams.length === 0 ? <div className="py-20 text-center text-slate-300 font-black">결과가 없습니다.</div> : (
                                 <>
-                                    <div className="grid grid-cols-3 gap-1.5 md:gap-4 text-left">
+                                    <div className="grid gap-1.5 md:gap-4 text-left" style={{ gridTemplateColumns: `repeat(${teams.length}, minmax(0, 1fr))` }}>
                                         {teams.map((team, idx) => (
                                             <div key={idx} ref={el => teamRefs.current[idx] = el} className="team-card bg-white rounded-2xl md:rounded-[32px] shadow-lg md:shadow-xl overflow-hidden border border-slate-100 text-left h-full flex flex-col" data-team-idx={idx} onDragOver={(e) => {e.preventDefault(); handleDragOver(e, idx, null);}} onDrop={(e) => {e.preventDefault(); handleDrop(e, idx, null);}} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
                                                 <div className={`p-2 md:p-4 text-center font-black text-white flex flex-col md:flex-row justify-between items-center px-2 md:px-6 ${idx === 0 ? 'bg-rose-500' : idx === 1 ? 'bg-blue-500' : idx === 2 ? 'bg-emerald-600' : idx === 3 ? 'bg-orange-500' : 'bg-violet-600'}`}><div className="flex flex-col md:flex-row items-center gap-0.5 md:gap-2"><span className="text-[10px] md:text-base uppercase tracking-tight text-white whitespace-nowrap">Team {idx + 1}</span><span className="text-[8px] md:text-[10px] bg-black/20 px-1.5 py-0.5 rounded-full font-black text-white whitespace-nowrap">{team.scoreSum} pts</span></div><span className="text-[8px] md:text-[10px] font-bold opacity-80 uppercase text-white mt-1 md:mt-0">{team.members.length} 명</span></div>
@@ -791,8 +841,18 @@
                                                         return (
                                                             <div key={mIdx} data-team-idx={idx} data-member-idx={mIdx} draggable onDragStart={(e) => handleDragStart(e, idx, mIdx)} onDragOver={(e) => {e.preventDefault(); e.stopPropagation(); handleDragOver(e, idx, mIdx);}} onDragEnd={handleDragEnd} onDrop={(e) => {e.stopPropagation(); handleDrop(e, idx, mIdx);}} onTouchStart={(e) => handleTouchStart(e, idx, mIdx, m)} onContextMenu={handleContextMenu} className={`relative transition-all duration-200 touch-action-none ${isDragging ? 'dragging' : ''} ${isDragTarget ? 'pt-12' : ''}`}>
                                                                 {isDragTarget && <div className="absolute top-0 left-0 right-0 h-10 border-2 border-dashed border-blue-400 bg-blue-50/50 rounded-xl flex items-center justify-center pointer-events-none transform -translate-y-1"><span className="text-blue-500 font-bold text-xs">이 위치로 이동</span></div>}
-                                                                <div className={`flex items-center justify-between p-1.5 md:p-3 bg-slate-50 rounded-lg md:rounded-2xl transition-all shadow-sm border border-slate-100/50 md:border-transparent cursor-move select-none ${!isDragging ? 'hover:bg-blue-50 hover:border-blue-300 hover:shadow-md hover:scale-[1.02] hover:z-10 relative' : ''}`}>
-                                                                    <div className="flex items-center gap-1.5 md:gap-3 text-left overflow-hidden"><span className="w-4 h-4 md:w-6 md:h-6 flex items-center justify-center rounded-full text-[8px] md:text-[9px] font-black flex-shrink-0 bg-slate-200 text-slate-500">{mIdx + 1}</span><div className="flex flex-col text-left overflow-hidden"><div className="flex items-center gap-1 text-left text-slate-900 leading-none"><span className="font-black text-slate-800 text-[10px] md:text-sm truncate">{m.name}</span>{m.gender === '여성' && <span className="text-[8px] md:text-[9px] font-black px-1 py-0.5 bg-pink-100 text-pink-600 rounded flex-shrink-0">W</span>}{isPartnerPresent && <span className="text-pink-400 text-[8px] md:text-[10px] flex-shrink-0"><Icon.Heart /></span>}{m.isGuest && <span className="text-[6px] md:text-[8px] font-black bg-blue-100 text-blue-600 px-0.5 rounded-sm flex-shrink-0">G</span>}</div></div></div>
+                                                                <div className={`flex items-center justify-between p-1 sm:p-2 gap-1 bg-slate-50 rounded-lg md:rounded-2xl transition-all shadow-sm border border-slate-100/50 md:border-transparent cursor-move select-none ${!isDragging ? 'hover:bg-blue-50 hover:border-blue-300 hover:shadow-md hover:scale-[1.02] hover:z-10 relative' : ''}`}>
+                                                                    <div className="flex-1 flex items-center gap-1 overflow-hidden text-left">
+                                                                        <span className="w-4 h-4 md:w-6 md:h-6 flex items-center justify-center rounded-full text-[8px] md:text-[9px] font-black flex-shrink-0 bg-slate-200 text-slate-500">{mIdx + 1}</span>
+                                                                        <div className="flex flex-col text-left overflow-hidden min-w-0">
+                                                                            <div className="flex items-center gap-1 text-left text-slate-900 leading-none">
+                                                                                <span className="font-black text-slate-800 text-[10px] md:text-sm truncate">{m.name}</span>
+                                                                                {m.gender === '여성' && <span className="text-[8px] md:text-[9px] font-black px-1 py-0.5 bg-pink-100 text-pink-600 rounded flex-shrink-0">W</span>}
+                                                                                {isPartnerPresent && <span className="text-pink-400 text-[8px] md:text-[10px] flex-shrink-0"><Icon.Heart /></span>}
+                                                                                {m.isGuest && <span className="text-[6px] md:text-[8px] font-black bg-blue-100 text-blue-600 px-0.5 md:px-1 rounded-sm flex-shrink-0">G</span>}
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
                                                                     <div className="flex items-center gap-1 md:gap-2 flex-shrink-0"><div className="flex flex-col items-end text-slate-900 text-right"><span className={`text-[8px] md:text-[10px] font-black px-1 md:px-1.5 py-0.5 rounded level-tag inline-flex items-center justify-center min-w-[16px] md:min-w-[20px] ${getLevelColor(m.level)}`}>{m.level}</span></div></div>
                                                                 </div>
                                                             </div>
@@ -838,6 +898,7 @@
                                         <div 
                                             key={item.id} 
                                             className={`bg-white p-6 rounded-[32px] border shadow-sm flex flex-col sm:flex-row sm:items-center justify-between transition-all gap-4 relative group ${storageTab === 'history' ? 'border-green-100 hover:border-green-300' : 'border-slate-200 hover:border-blue-300'}`}
+                                            // Mobile/iPad: Click to Open Preview Modal
                                             onClick={() => setPreviewModalData(item)}
                                         >
                                             <div className="text-left text-slate-900 pointer-events-none">
